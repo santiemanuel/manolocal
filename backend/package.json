@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "dev": "tsx src/api/server.ts",
     "arkiv:hello": "tsx scripts/arkiv-hello.ts",
     "db:migrate": "tsx db/migrate.ts",
     "db:seed": "tsx db/seed.ts",

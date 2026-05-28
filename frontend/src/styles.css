@@ -731,6 +731,23 @@ textarea:focus {
   border-bottom: 1px solid var(--hairline);
 }
 
+.sync-message,
+.form-error {
+  color: #8a321f;
+  font-size: 14px;
+}
+
+.sync-message {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 10px 28px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.form-error {
+  margin-top: 14px;
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;

@@ -51,6 +51,16 @@ export type Job = {
   arkivTxHashCreated: string | null;
 };
 
+export type CreateJobInput = {
+  clientId: string;
+  providerId?: string | null;
+  serviceId: string;
+  title: string;
+  description: string;
+  addressArea?: string | null;
+  scheduledDate?: string | null;
+};
+
 export type EvidenceType = "before" | "progress" | "after" | "receipt" | "issue";
 export type AiStatus = "pending" | "valid" | "warning" | "rejected";
 
@@ -70,14 +80,32 @@ export type JobEvidence = {
   createdAt: string;
 };
 
+export type CreateEvidenceInput = {
+  jobId: string;
+  uploadedBy: string;
+  type: EvidenceType;
+  localFilePath: string;
+  publicFileUrl?: string | null;
+  description?: string | null;
+  sha256Hash: string;
+};
+
 export type ArkivEvent = {
   id: string;
-  localSubjectType: "job" | "evidence" | "review";
+  localSubjectType: string;
   localSubjectId: string;
-  eventType: "job_created" | "evidence_uploaded" | "ai_review_generated" | "job_completed";
+  eventType: string;
   entityKey: string;
   txHash: string;
+  payloadJson?: string;
+  attributesJson?: string;
   createdAt: string;
+};
+
+export type RemoteState = {
+  jobs: Job[];
+  evidence: JobEvidence[];
+  arkivEvents: ArkivEvent[];
 };
 
 export type Review = {

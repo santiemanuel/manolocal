@@ -34,6 +34,12 @@ import {
   useMemo,
   useState,
 } from "react";
+import {
+  createEvidence,
+  createJob,
+  fetchState,
+  updateJobStatus,
+} from "./api/client";
 import heroEvidence from "./assets/hero-evidence.png";
 import {
   arkivEvents as initialArkivEvents,
@@ -44,7 +50,7 @@ import {
   services,
   users,
 } from "./data";
-import type { ArkivEvent, EvidenceType, Job, JobEvidence, JobStatus, Service } from "./types";
+import type { ArkivEvent, EvidenceType, Job, JobEvidence, JobStatus, RemoteState, Service } from "./types";
 
 type Route =
   | { name: "home" }
@@ -163,15 +169,34 @@ function serviceSlug(service: Service) {
   return service.name.toLowerCase();
 }
 
+function arkivEntityUrl(entityKey: string) {
+  const params = new URLSearchParams({ q: `$key = "${entityKey}"` });
+  return `https://data.arkiv.network/entities/${entityKey}?${params.toString()}`;
+}
+
 function App() {
   const route = useRoute();
   const [menuOpen, setMenuOpen] = useState(false);
   const [jobs, setJobs] = useState<Job[]>(initialJobs);
   const [evidence, setEvidence] = useState<JobEvidence[]>(initialEvidence);
   const [arkivEvents, setArkivEvents] = useState<ArkivEvent[]>(initialArkivEvents);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  function applyRemoteState(state: RemoteState) {
+    setJobs(state.jobs);
+    setEvidence(state.evidence);
+    setArkivEvents(state.arkivEvents);
+    setSyncMessage(null);
+  }
+
+  useEffect(() => {
+    fetchState()
+      .then(applyRemoteState)
+      .catch(() => setSyncMessage("API local sin conexion; la pagina sigue en modo demo."));
+  }, []);
 
   const context = useMemo(
-    () => ({ jobs, evidence, arkivEvents, setJobs, setEvidence, setArkivEvents }),
+    () => ({ jobs, evidence, arkivEvents, setJobs, setEvidence, setArkivEvents, applyRemoteState, setSyncMessage }),
     [jobs, evidence, arkivEvents],
   );
 
@@ -210,13 +235,14 @@ function App() {
           <ArrowRight size={16} />
         </a>
       </header>
+      {syncMessage && <div className="sync-message">{syncMessage}</div>}
 
       {route.name === "home" && <HomePage jobs={jobs} evidence={evidence} />}
       {route.name === "services" && <ServicesPage />}
       {route.name === "serviceProviders" && <ProvidersPage serviceId={route.serviceId} />}
       {route.name === "providerProfile" && <ProviderProfilePage providerId={route.providerId} jobs={jobs} evidence={evidence} />}
       {route.name === "newJob" && (
-        <NewJobPage serviceId={route.serviceId} providerId={route.providerId} jobs={jobs} setJobs={setJobs} />
+        <NewJobPage serviceId={route.serviceId} providerId={route.providerId} context={context} />
       )}
       {route.name === "jobDetail" && <JobDetailPage jobId={route.jobId} context={context} />}
       {route.name === "providerDashboard" && <ProviderDashboard context={context} />}
@@ -546,40 +572,42 @@ function ProviderProfilePage({
 function NewJobPage({
   serviceId,
   providerId,
-  jobs,
-  setJobs,
+  context,
 }: {
   serviceId: string | null;
   providerId: string | null;
-  jobs: Job[];
-  setJobs: React.Dispatch<React.SetStateAction<Job[]>>;
+  context: AppContext;
 }) {
   const service = services.find((item) => item.id === serviceId) ?? services[0];
   const provider = providerProfiles.find((item) => item.user.id === providerId) ?? providerProfiles[0];
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const id = `job_${String(jobs.length + 1).padStart(3, "0")}`;
-    const now = new Date().toISOString();
-    const job: Job = {
-      id,
-      clientId: "client_001",
-      providerId: String(form.get("providerId")),
-      serviceId: String(form.get("serviceId")),
-      title: String(form.get("title")),
-      description: String(form.get("description")),
-      status: "requested",
-      addressArea: String(form.get("addressArea")),
-      scheduledDate: String(form.get("scheduledDate")),
-      createdAt: now,
-      updatedAt: now,
-      arkivEntityKeyCreated: null,
-      arkivTxHashCreated: null,
-    };
+    setSubmitting(true);
+    setError(null);
 
-    setJobs((current) => [job, ...current]);
-    navigate(`/jobs/${id}`);
+    try {
+      const state = await createJob({
+        clientId: "client_001",
+        providerId: String(form.get("providerId")),
+        serviceId: String(form.get("serviceId")),
+        title: String(form.get("title")),
+        description: String(form.get("description")),
+        addressArea: String(form.get("addressArea")),
+        scheduledDate: String(form.get("scheduledDate")),
+      });
+      const createdJob = state.jobs[0];
+
+      context.applyRemoteState(state);
+      navigate(`/jobs/${createdJob.id}`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No se pudo crear el trabajo.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -632,10 +660,11 @@ function NewJobPage({
             />
           </label>
         </div>
-        <button className="button primary" type="submit">
-          Crear trabajo
+        <button className="button primary" type="submit" disabled={submitting}>
+          {submitting ? "Publicando..." : "Crear trabajo"}
           <ArrowRight size={17} />
         </button>
+        {error && <p className="form-error">{error}</p>}
       </form>
     </main>
   );
@@ -648,9 +677,13 @@ type AppContext = {
   setJobs: Dispatch<SetStateAction<Job[]>>;
   setEvidence: Dispatch<SetStateAction<JobEvidence[]>>;
   setArkivEvents: Dispatch<SetStateAction<ArkivEvent[]>>;
+  applyRemoteState: (state: RemoteState) => void;
+  setSyncMessage: Dispatch<SetStateAction<string | null>>;
 };
 
 function JobDetailPage({ jobId, context }: { jobId: string; context: AppContext }) {
+  const [busyAction, setBusyAction] = useState<JobStatus | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const job = context.jobs.find((item) => item.id === jobId);
   if (!job) return <NotFoundPage />;
   const selectedJob = job;
@@ -661,55 +694,26 @@ function JobDetailPage({ jobId, context }: { jobId: string; context: AppContext 
   const jobEvidence = context.evidence.filter((item) => item.jobId === selectedJob.id);
   const review = reviews.find((item) => item.jobId === selectedJob.id);
 
-  function updateStatus(status: JobStatus) {
-    context.setJobs((current) =>
-      current.map((item) => (item.id === selectedJob.id ? { ...item, status, updatedAt: new Date().toISOString() } : item)),
-    );
+  async function updateStatus(status: JobStatus) {
+    setBusyAction(status);
+    setActionError(null);
+
+    try {
+      const state = await updateJobStatus(selectedJob.id, status);
+      context.applyRemoteState(state);
+    } catch (caught) {
+      setActionError(caught instanceof Error ? caught.message : "No se pudo actualizar el trabajo.");
+    } finally {
+      setBusyAction(null);
+    }
   }
 
-  function attachAiReview() {
-    const target = jobEvidence[0];
-    if (!target) return;
-    context.setEvidence((current) =>
-      current.map((item) =>
-        item.id === target.id
-          ? {
-              ...item,
-              aiStatus: "valid",
-              aiSummary: "La evidencia parece consistente con el servicio y no muestra alertas criticas.",
-            }
-          : item,
-      ),
-    );
-    context.setArkivEvents((current) => [
-      ...current,
-      {
-        id: `arkiv_${current.length + 1}`,
-        localSubjectType: "evidence",
-        localSubjectId: target.id,
-        eventType: "ai_review_generated",
-        entityKey: `braga:ai-review:${target.id}`,
-        txHash: `0xa1${Date.now().toString(16)}`,
-        createdAt: new Date().toISOString(),
-      },
-    ]);
-    updateStatus("ai_reviewed");
+  async function attachAiReview() {
+    await updateStatus("ai_reviewed");
   }
 
-  function completeJob() {
-    context.setArkivEvents((current) => [
-      ...current,
-      {
-        id: `arkiv_${current.length + 1}`,
-        localSubjectType: "job",
-        localSubjectId: selectedJob.id,
-        eventType: "job_completed",
-        entityKey: `braga:job-completed:${selectedJob.id}`,
-        txHash: `0xb8${Date.now().toString(16)}`,
-        createdAt: new Date().toISOString(),
-      },
-    ]);
-    updateStatus("completed");
+  async function completeJob() {
+    await updateStatus("completed");
   }
 
   return (
@@ -730,14 +734,14 @@ function JobDetailPage({ jobId, context }: { jobId: string; context: AppContext 
 
       <section className="job-actions">
         {job.status === "requested" && (
-          <button className="button primary" onClick={() => updateStatus("accepted")}>
-            Aceptar trabajo
+          <button className="button primary" onClick={() => void updateStatus("accepted")} disabled={Boolean(busyAction)}>
+            {busyAction === "accepted" ? "Actualizando..." : "Aceptar trabajo"}
             <CheckCircle2 size={17} />
           </button>
         )}
         {job.status === "accepted" && (
-          <button className="button primary" onClick={() => updateStatus("in_progress")}>
-            Marcar en progreso
+          <button className="button primary" onClick={() => void updateStatus("in_progress")} disabled={Boolean(busyAction)}>
+            {busyAction === "in_progress" ? "Actualizando..." : "Marcar en progreso"}
             <ArrowRight size={17} />
           </button>
         )}
@@ -752,20 +756,21 @@ function JobDetailPage({ jobId, context }: { jobId: string; context: AppContext 
           </a>
         )}
         {job.status === "evidence_uploaded" && (
-          <button className="button primary" onClick={attachAiReview}>
-            Guardar revision IA
+          <button className="button primary" onClick={() => void attachAiReview()} disabled={Boolean(busyAction)}>
+            {busyAction === "ai_reviewed" ? "Publicando..." : "Guardar revision IA"}
             <Bot size={17} />
           </button>
         )}
         {job.status === "ai_reviewed" && (
-          <button className="button primary" onClick={completeJob}>
-            Aprobar cierre
+          <button className="button primary" onClick={() => void completeJob()} disabled={Boolean(busyAction)}>
+            {busyAction === "completed" ? "Publicando..." : "Aprobar cierre"}
             <CheckCircle2 size={17} />
           </button>
         )}
         <a className="button text" href="/admin" onClick={linkTo("/admin")}>
           Abrir auditoria
         </a>
+        {actionError && <p className="form-error">{actionError}</p>}
       </section>
 
       <section className="split-section wide-left">
@@ -938,39 +943,36 @@ function nextStep(status: JobStatus) {
 }
 
 function NewEvidencePage({ jobId, context }: { jobId: string; context: AppContext }) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const job = context.jobs.find((item) => item.id === jobId);
   if (!job) return <NotFoundPage />;
   const selectedJob = job;
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const id = `evidence_${String(context.evidence.length + 1).padStart(3, "0")}`;
     const fileName = String((form.get("file") as File)?.name || `${selectedJob.id}_after.jpg`);
-    const now = new Date().toISOString();
-    const newEvidence: JobEvidence = {
-      id,
-      jobId: selectedJob.id,
-      uploadedBy: selectedJob.providerId ?? "provider_001",
-      type: String(form.get("type")) as EvidenceType,
-      localFilePath: `uploads/${fileName}`,
-      publicFileUrl: `/uploads/${fileName}`,
-      description: String(form.get("description")),
-      sha256Hash: `demo-${Date.now().toString(16)}-${selectedJob.id}`,
-      aiSummary: null,
-      aiStatus: "pending",
-      arkivEntityKey: null,
-      arkivTxHash: null,
-      createdAt: now,
-    };
+    setSubmitting(true);
+    setError(null);
 
-    context.setEvidence((current) => [...current, newEvidence]);
-    context.setJobs((current) =>
-      current.map((item) =>
-        item.id === selectedJob.id ? { ...item, status: "evidence_uploaded", updatedAt: now } : item,
-      ),
-    );
-    navigate(`/jobs/${selectedJob.id}`);
+    try {
+      const state = await createEvidence(selectedJob.id, {
+        uploadedBy: selectedJob.providerId ?? "provider_001",
+        type: String(form.get("type")) as EvidenceType,
+        localFilePath: `uploads/${fileName}`,
+        publicFileUrl: `/uploads/${fileName}`,
+        description: String(form.get("description")),
+        fileName,
+      });
+
+      context.applyRemoteState(state);
+      navigate(`/jobs/${selectedJob.id}`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No se pudo guardar la evidencia.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -1001,10 +1003,11 @@ function NewEvidencePage({ jobId, context }: { jobId: string; context: AppContex
             <textarea name="description" defaultValue="Reparacion terminada sin perdida visible." />
           </label>
         </div>
-        <button className="button primary" type="submit">
-          Guardar evidencia
+        <button className="button primary" type="submit" disabled={submitting}>
+          {submitting ? "Publicando..." : "Guardar evidencia"}
           <Upload size={17} />
         </button>
+        {error && <p className="form-error">{error}</p>}
       </form>
     </main>
   );
@@ -1053,7 +1056,7 @@ function AdminPage({
                 {jobEvents.length > 0 ? (
                   jobEvents.map((event) => (
                     <a
-                      href={`https://data.arkiv.network/entities/${event.entityKey}`}
+                      href={arkivEntityUrl(event.entityKey)}
                       target="_blank"
                       rel="noreferrer"
                       key={event.id}
