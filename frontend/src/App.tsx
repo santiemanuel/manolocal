@@ -45,12 +45,23 @@ import {
   arkivEvents as initialArkivEvents,
   evidence as initialEvidence,
   jobs as initialJobs,
-  providerProfiles,
-  reviews,
-  services,
-  users,
+  providerProfiles as initialProviderProfiles,
+  reviews as initialReviews,
+  services as initialServices,
+  users as initialUsers,
 } from "./data";
-import type { ArkivEvent, EvidenceType, Job, JobEvidence, JobStatus, RemoteState, Service } from "./types";
+import type {
+  ArkivEvent,
+  EvidenceType,
+  Job,
+  JobEvidence,
+  JobStatus,
+  ProviderProfile,
+  RemoteState,
+  Review,
+  Service,
+  User,
+} from "./types";
 
 type Route =
   | { name: "home" }
@@ -148,7 +159,7 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-function serviceIcon(icon: string) {
+function serviceIcon(icon: string | null) {
   const icons: Record<string, ReactNode> = {
     wrench: <Wrench size={20} />,
     sprout: <Sprout size={20} />,
@@ -158,10 +169,10 @@ function serviceIcon(icon: string) {
     settings: <Settings size={20} />,
   };
 
-  return icons[icon] ?? <BriefcaseBusiness size={20} />;
+  return icon ? (icons[icon] ?? <BriefcaseBusiness size={20} />) : <BriefcaseBusiness size={20} />;
 }
 
-function findUser(id: string | null) {
+function findUser(users: User[], id: string | null) {
   return users.find((user) => user.id === id) ?? null;
 }
 
@@ -169,22 +180,71 @@ function serviceSlug(service: Service) {
   return service.name.toLowerCase();
 }
 
+const arkivEntityExplorerUrl = "https://data.arkiv.network";
+const arkivBlockExplorerUrl = "https://explorer.braga.hoodi.arkiv.network";
+
+function isArkivEntityKey(value: string | null | undefined): value is string {
+  return /^0x[0-9a-fA-F]{64}$/.test(value ?? "");
+}
+
+function isArkivTxHash(value: string | null | undefined): value is string {
+  return /^0x[0-9a-fA-F]{64}$/.test(value ?? "");
+}
+
 function arkivEntityUrl(entityKey: string) {
   const params = new URLSearchParams({ q: `$key = "${entityKey}"` });
-  return `https://data.arkiv.network/entities/${entityKey}?${params.toString()}`;
+  return `${arkivEntityExplorerUrl}/?${params.toString()}`;
+}
+
+function arkivTxUrl(txHash: string) {
+  return `${arkivBlockExplorerUrl}/tx/${txHash}`;
+}
+
+function compactArkivId(value: string) {
+  return value.length > 18 ? `${value.slice(0, 8)}...${value.slice(-6)}` : value;
+}
+
+function arkivReferenceUrl(value: string | null | undefined) {
+  if (isArkivEntityKey(value)) return arkivEntityUrl(value);
+  if (isArkivTxHash(value)) return arkivTxUrl(value);
+  return null;
+}
+
+function ArkivReference({ value, fallback = "pendiente" }: { value: string | null | undefined; fallback?: string }) {
+  const href = arkivReferenceUrl(value);
+  const referenceValue = value ?? "";
+
+  if (!href) {
+    return <code>{value ? fallback : "pendiente"}</code>;
+  }
+
+  return (
+    <a className="arkiv-reference" href={href} target="_blank" rel="noreferrer" title={referenceValue}>
+      <code>{compactArkivId(referenceValue)}</code>
+      <ExternalLink size={13} />
+    </a>
+  );
 }
 
 function App() {
   const route = useRoute();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [users, setUsers] = useState<User[]>(initialUsers);
+  const [services, setServices] = useState<Service[]>(initialServices);
+  const [providerProfiles, setProviderProfiles] = useState<ProviderProfile[]>(initialProviderProfiles);
   const [jobs, setJobs] = useState<Job[]>(initialJobs);
   const [evidence, setEvidence] = useState<JobEvidence[]>(initialEvidence);
+  const [reviews, setReviews] = useState<Review[]>(initialReviews);
   const [arkivEvents, setArkivEvents] = useState<ArkivEvent[]>(initialArkivEvents);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   function applyRemoteState(state: RemoteState) {
+    setUsers(state.users);
+    setServices(state.services);
+    setProviderProfiles(state.providerProfiles);
     setJobs(state.jobs);
     setEvidence(state.evidence);
+    setReviews(state.reviews);
     setArkivEvents(state.arkivEvents);
     setSyncMessage(null);
   }
@@ -196,8 +256,21 @@ function App() {
   }, []);
 
   const context = useMemo(
-    () => ({ jobs, evidence, arkivEvents, setJobs, setEvidence, setArkivEvents, applyRemoteState, setSyncMessage }),
-    [jobs, evidence, arkivEvents],
+    () => ({
+      users,
+      services,
+      providerProfiles,
+      reviews,
+      jobs,
+      evidence,
+      arkivEvents,
+      setJobs,
+      setEvidence,
+      setArkivEvents,
+      applyRemoteState,
+      setSyncMessage,
+    }),
+    [users, services, providerProfiles, reviews, jobs, evidence, arkivEvents],
   );
 
   return (
@@ -238,9 +311,11 @@ function App() {
       {syncMessage && <div className="sync-message">{syncMessage}</div>}
 
       {route.name === "home" && <HomePage jobs={jobs} evidence={evidence} />}
-      {route.name === "services" && <ServicesPage />}
-      {route.name === "serviceProviders" && <ProvidersPage serviceId={route.serviceId} />}
-      {route.name === "providerProfile" && <ProviderProfilePage providerId={route.providerId} jobs={jobs} evidence={evidence} />}
+      {route.name === "services" && <ServicesPage services={services} />}
+      {route.name === "serviceProviders" && (
+        <ProvidersPage serviceId={route.serviceId} services={services} providerProfiles={providerProfiles} />
+      )}
+      {route.name === "providerProfile" && <ProviderProfilePage providerId={route.providerId} context={context} />}
       {route.name === "newJob" && (
         <NewJobPage serviceId={route.serviceId} providerId={route.providerId} context={context} />
       )}
@@ -397,7 +472,7 @@ function Feature({ icon, title, text }: { icon: ReactNode; title: string; text: 
   );
 }
 
-function ServicesPage() {
+function ServicesPage({ services }: { services: Service[] }) {
   const [category, setCategory] = useState("all");
   const categories = ["all", ...Array.from(new Set(services.map((service) => service.category)))];
   const visibleServices = category === "all" ? services : services.filter((service) => service.category === category);
@@ -407,7 +482,7 @@ function ServicesPage() {
       <PageTitle
         eyebrow="Servicios"
         title="Elegir una categoria para iniciar el trabajo verificable."
-        text="Los datos usan los mismos ids y campos que el seed local del backend."
+        text="Los datos usan los mismos ids y campos sembrados en Directus."
       />
       <div className="chip-row">
         {categories.map((item) => (
@@ -428,7 +503,7 @@ function ServicesPage() {
             <h2>{service.name}</h2>
             <p>{service.description}</p>
             <div className="card-footer">
-              <span>{formatCurrency(service.basePrice)}</span>
+              <span>{formatCurrency(service.basePrice ?? 0)}</span>
               <a href={`/services/${service.id}/providers`} onClick={linkTo(`/services/${service.id}/providers`)}>
                 Ver prestadores
                 <ArrowRight size={16} />
@@ -441,7 +516,15 @@ function ServicesPage() {
   );
 }
 
-function ProvidersPage({ serviceId }: { serviceId: string }) {
+function ProvidersPage({
+  serviceId,
+  services,
+  providerProfiles,
+}: {
+  serviceId: string;
+  services: Service[];
+  providerProfiles: ProviderProfile[];
+}) {
   const service = services.find((item) => item.id === serviceId);
   const providers = service
     ? providerProfiles.filter((profile) => profile.serviceCategories.includes(serviceSlug(service)))
@@ -454,7 +537,7 @@ function ProvidersPage({ serviceId }: { serviceId: string }) {
       <PageTitle
         eyebrow={service.name}
         title="Prestadores disponibles con historial verificable."
-        text={service.description}
+        text={service.description ?? ""}
       />
       <div className="provider-list">
         {providers.map((profile) => (
@@ -465,7 +548,7 @@ function ProvidersPage({ serviceId }: { serviceId: string }) {
   );
 }
 
-function ProviderRow({ profile, service }: { profile: (typeof providerProfiles)[number]; service: Service }) {
+function ProviderRow({ profile, service }: { profile: ProviderProfile; service: Service }) {
   return (
     <article className="provider-row">
       <Avatar name={profile.user.name} />
@@ -498,21 +581,14 @@ function ProviderRow({ profile, service }: { profile: (typeof providerProfiles)[
   );
 }
 
-function ProviderProfilePage({
-  providerId,
-  jobs,
-  evidence,
-}: {
-  providerId: string;
-  jobs: Job[];
-  evidence: JobEvidence[];
-}) {
-  const profile = providerProfiles.find((item) => item.user.id === providerId);
+function ProviderProfilePage({ providerId, context }: { providerId: string; context: AppContext }) {
+  const profile = context.providerProfiles.find((item) => item.user.id === providerId);
   if (!profile) return <NotFoundPage />;
 
-  const providerJobs = jobs.filter((job) => job.providerId === providerId);
-  const service = services.find((item) => profile.serviceCategories.includes(serviceSlug(item))) ?? services[0];
-  const pastEvidence = evidence.filter((item) => providerJobs.some((job) => job.id === item.jobId));
+  const providerJobs = context.jobs.filter((job) => job.providerId === providerId);
+  const service =
+    context.services.find((item) => profile.serviceCategories.includes(serviceSlug(item))) ?? context.services[0];
+  const pastEvidence = context.evidence.filter((item) => providerJobs.some((job) => job.id === item.jobId));
 
   return (
     <main className="page">
@@ -533,8 +609,8 @@ function ProviderProfilePage({
         </div>
         <a
           className="button primary"
-          href={`/jobs/new?serviceId=${service.id}&providerId=${profile.user.id}`}
-          onClick={linkTo(`/jobs/new?serviceId=${service.id}&providerId=${profile.user.id}`)}
+          href={`/jobs/new?serviceId=${service?.id ?? ""}&providerId=${profile.user.id}`}
+          onClick={linkTo(`/jobs/new?serviceId=${service?.id ?? ""}&providerId=${profile.user.id}`)}
         >
           Solicitar trabajo
           <ArrowRight size={17} />
@@ -578,8 +654,8 @@ function NewJobPage({
   providerId: string | null;
   context: AppContext;
 }) {
-  const service = services.find((item) => item.id === serviceId) ?? services[0];
-  const provider = providerProfiles.find((item) => item.user.id === providerId) ?? providerProfiles[0];
+  const service = context.services.find((item) => item.id === serviceId) ?? context.services[0];
+  const provider = context.providerProfiles.find((item) => item.user.id === providerId) ?? context.providerProfiles[0];
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -621,8 +697,8 @@ function NewJobPage({
         <div className="form-grid">
           <label>
             Servicio
-            <select name="serviceId" defaultValue={service.id}>
-              {services.map((item) => (
+            <select name="serviceId" defaultValue={service?.id}>
+              {context.services.map((item) => (
                 <option value={item.id} key={item.id}>
                   {item.name}
                 </option>
@@ -631,8 +707,8 @@ function NewJobPage({
           </label>
           <label>
             Prestador
-            <select name="providerId" defaultValue={provider.user.id}>
-              {providerProfiles.map((item) => (
+            <select name="providerId" defaultValue={provider?.user.id}>
+              {context.providerProfiles.map((item) => (
                 <option value={item.user.id} key={item.user.id}>
                   {item.user.name}
                 </option>
@@ -671,6 +747,10 @@ function NewJobPage({
 }
 
 type AppContext = {
+  users: User[];
+  services: Service[];
+  providerProfiles: ProviderProfile[];
+  reviews: Review[];
   jobs: Job[];
   evidence: JobEvidence[];
   arkivEvents: ArkivEvent[];
@@ -688,11 +768,11 @@ function JobDetailPage({ jobId, context }: { jobId: string; context: AppContext 
   if (!job) return <NotFoundPage />;
   const selectedJob = job;
 
-  const service = services.find((item) => item.id === selectedJob.serviceId);
-  const client = findUser(selectedJob.clientId);
-  const provider = findUser(selectedJob.providerId);
+  const service = context.services.find((item) => item.id === selectedJob.serviceId);
+  const client = findUser(context.users, selectedJob.clientId);
+  const provider = findUser(context.users, selectedJob.providerId);
   const jobEvidence = context.evidence.filter((item) => item.jobId === selectedJob.id);
-  const review = reviews.find((item) => item.jobId === selectedJob.id);
+  const review = context.reviews.find((item) => item.jobId === selectedJob.id);
 
   async function updateStatus(status: JobStatus) {
     setBusyAction(status);
@@ -726,7 +806,7 @@ function JobDetailPage({ jobId, context }: { jobId: string; context: AppContext 
           <div className="trust-line">
             <span>{client?.name}</span>
             <span>{provider?.name ?? "Sin prestador"}</span>
-            <span>{job.addressArea}</span>
+            <span>{job.addressArea ?? "Zona no indicada"}</span>
           </div>
         </div>
         <StatusPill status={job.status} />
@@ -780,9 +860,12 @@ function JobDetailPage({ jobId, context }: { jobId: string; context: AppContext 
         </div>
         <aside className="verification-panel">
           <h2>Verificacion</h2>
-          <KeyValue label="Entity key solicitud" value={selectedJob.arkivEntityKeyCreated ?? "Pendiente de publicacion"} />
-          <KeyValue label="Tx hash solicitud" value={selectedJob.arkivTxHashCreated ?? "Pendiente de publicacion"} />
-          <KeyValue label="Fecha programada" value={formatDate(selectedJob.scheduledDate)} />
+          <KeyValue label="Entity key solicitud" value={selectedJob.arkivEntityKeyCreated} />
+          <KeyValue label="Tx hash solicitud" value={selectedJob.arkivTxHashCreated} />
+          <KeyValue
+            label="Fecha programada"
+            value={selectedJob.scheduledDate ? formatDate(selectedJob.scheduledDate) : "Sin fecha"}
+          />
         </aside>
       </section>
 
@@ -805,8 +888,7 @@ function JobDetailPage({ jobId, context }: { jobId: string; context: AppContext 
           <span className="eyebrow inverted">Resultado final</span>
           <h2>{review ? `${review.rating}/5 - ${review.comment}` : "Resena pendiente"}</h2>
           <p>
-            El cierre crea el evento job_completed y deja un historial consultable por jobId cuando se conecte la etapa
-            8.
+            El cierre crea el evento job_completed y deja un historial consultable por jobId desde Directus.
           </p>
         </div>
         <StatusPill status={selectedJob.status} light />
@@ -871,14 +953,21 @@ function VerificationTimeline({
     <div className="timeline-list">
       {rows.map((row) => (
         <div className="timeline-row" key={row.event}>
-          {row.entityKey ? <CheckCircle2 className="ok" size={20} /> : row.done ? <Clock3 size={20} /> : <AlertTriangle size={20} />}
+          {isArkivEntityKey(row.entityKey) ? (
+            <CheckCircle2 className="ok" size={20} />
+          ) : row.done ? (
+            <Clock3 size={20} />
+          ) : (
+            <AlertTriangle size={20} />
+          )}
           <div>
             <strong>{row.label}</strong>
             <span>{row.local}</span>
           </div>
           <div className="timeline-proof">
             <span>{row.event}</span>
-            <code>{row.entityKey ?? "pendiente"}</code>
+            <ArkivReference value={row.entityKey} fallback="referencia local no publicada" />
+            {isArkivTxHash(row.txHash) && <ArkivReference value={row.txHash} />}
           </div>
         </div>
       ))}
@@ -894,11 +983,11 @@ function ProviderDashboard({ context }: { context: AppContext }) {
       <PageTitle
         eyebrow="Panel prestador"
         title="Trabajos asignados y proximo paso recomendado."
-        text="Las acciones modifican el estado local para recorrer el guion de demo."
+        text="Las acciones modifican el estado real en Directus para recorrer el guion de demo."
       />
       <div className="work-table">
         {assignedJobs.map((job) => {
-          const service = services.find((item) => item.id === job.serviceId);
+          const service = context.services.find((item) => item.id === job.serviceId);
           return (
             <article className="work-row" key={job.id}>
               <div>
@@ -952,19 +1041,23 @@ function NewEvidencePage({ jobId, context }: { jobId: string; context: AppContex
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const fileName = String((form.get("file") as File)?.name || `${selectedJob.id}_after.jpg`);
+    const file = form.get("file");
     setSubmitting(true);
     setError(null);
 
+    if (!(file instanceof File) || file.size === 0) {
+      setSubmitting(false);
+      setError("Selecciona una imagen para guardar la evidencia.");
+      return;
+    }
+
     try {
-      const state = await createEvidence(selectedJob.id, {
-        uploadedBy: selectedJob.providerId ?? "provider_001",
-        type: String(form.get("type")) as EvidenceType,
-        localFilePath: `uploads/${fileName}`,
-        publicFileUrl: `/uploads/${fileName}`,
-        description: String(form.get("description")),
-        fileName,
-      });
+      const payload = new FormData();
+      payload.set("uploadedBy", selectedJob.providerId ?? "provider_001");
+      payload.set("type", String(form.get("type")) as EvidenceType);
+      payload.set("description", String(form.get("description")));
+      payload.set("file", file);
+      const state = await createEvidence(selectedJob.id, payload);
 
       context.applyRemoteState(state);
       navigate(`/jobs/${selectedJob.id}`);
@@ -980,7 +1073,7 @@ function NewEvidencePage({ jobId, context }: { jobId: string; context: AppContex
       <PageTitle
         eyebrow="Subir evidencia"
         title={selectedJob.title}
-        text="El archivo queda representado como uploads/, con hash y metadata listos para publicar evidence_uploaded."
+        text="El archivo se guarda con hash SHA-256 y metadata listos para publicar evidence_uploaded."
       />
       <form className="form-card" onSubmit={onSubmit}>
         <div className="form-grid">
@@ -996,7 +1089,7 @@ function NewEvidencePage({ jobId, context }: { jobId: string; context: AppContex
           </label>
           <label>
             Archivo local
-            <input name="file" type="file" />
+            <input name="file" type="file" accept="image/*" required />
           </label>
           <label className="wide">
             Descripcion
@@ -1036,6 +1129,9 @@ function AdminPage({
             (event) =>
               event.localSubjectId === job.id || jobEvidence.some((item) => item.id === event.localSubjectId),
           );
+          const verifiableEvents = jobEvents.filter(
+            (event) => isArkivEntityKey(event.entityKey) || isArkivTxHash(event.txHash),
+          );
           const alert = jobEvidence.some((item) => item.aiStatus === "warning" || item.aiStatus === "rejected");
 
           return (
@@ -1049,24 +1145,33 @@ function AdminPage({
               </div>
               <div className="admin-metrics">
                 <Metric label="Evidencias" value={jobEvidence.length.toString()} />
-                <Metric label="Eventos Arkiv" value={jobEvents.length.toString()} />
+                <Metric label="Links Arkiv" value={`${verifiableEvents.length}/${jobEvents.length}`} />
                 <Metric label="IA" value={alert ? "Alerta" : "OK"} />
               </div>
               <div className="proof-list">
                 {jobEvents.length > 0 ? (
-                  jobEvents.map((event) => (
-                    <a
-                      href={arkivEntityUrl(event.entityKey)}
-                      target="_blank"
-                      rel="noreferrer"
-                      key={event.id}
-                    >
-                      <Database size={15} />
-                      <span>{event.eventType}</span>
-                      <code>{event.entityKey}</code>
-                      <ExternalLink size={14} />
-                    </a>
-                  ))
+                  jobEvents.map((event) => {
+                    const entityHref = isArkivEntityKey(event.entityKey) ? arkivEntityUrl(event.entityKey) : null;
+                    const txHref = isArkivTxHash(event.txHash) ? arkivTxUrl(event.txHash) : null;
+                    const href = entityHref ?? txHref;
+
+                    return href ? (
+                      <a href={href} target="_blank" rel="noreferrer" key={event.id}>
+                        <Database size={15} />
+                        <span>{event.eventType}</span>
+                        <code title={entityHref ? event.entityKey : event.txHash}>
+                          {compactArkivId(entityHref ? event.entityKey : event.txHash)}
+                        </code>
+                        <ExternalLink size={14} />
+                      </a>
+                    ) : (
+                      <span className="pending-proof" key={event.id}>
+                        <Clock3 size={15} />
+                        <span>{event.eventType}</span>
+                        <code>referencia local no publicada</code>
+                      </span>
+                    );
+                  })
                 ) : (
                   <span className="pending-proof">Sin eventos publicados</span>
                 )}
@@ -1102,11 +1207,29 @@ function StatusIcon({ status }: { status: JobStatus }) {
   return <AlertTriangle size={20} />;
 }
 
+function resolveEvidenceImageUrl(value: string | null) {
+  if (!value) return null;
+  if (/^(https?:|data:|blob:)/i.test(value)) return value;
+
+  const directusUrl = import.meta.env.VITE_DIRECTUS_URL?.trim().replace(/\/$/, "");
+  if (directusUrl && value.startsWith("/assets/")) {
+    return `${directusUrl}${value}`;
+  }
+
+  return value;
+}
+
 function EvidenceCard({ item, compact = false }: { item: JobEvidence; compact?: boolean }) {
+  const imageUrl = resolveEvidenceImageUrl(item.publicFileUrl);
+
   return (
     <article className={compact ? "evidence-card compact" : "evidence-card"}>
       <div className="evidence-preview">
-        <FileText size={22} />
+        {imageUrl ? (
+          <img src={imageUrl} alt={item.description ?? `Evidencia ${item.type}`} loading="lazy" />
+        ) : (
+          <FileText size={22} />
+        )}
         <span>{item.type}</span>
       </div>
       <div>
@@ -1118,18 +1241,22 @@ function EvidenceCard({ item, compact = false }: { item: JobEvidence; compact?: 
         </div>
         <div className="proof-state">
           {item.arkivEntityKey ? <CheckCircle2 size={16} /> : <Clock3 size={16} />}
-          <span>{item.arkivEntityKey ?? "Pendiente de publicacion en Arkiv"}</span>
+          {item.arkivEntityKey ? (
+            <ArkivReference value={item.arkivEntityKey} />
+          ) : (
+            <span>Pendiente de publicacion en Arkiv</span>
+          )}
         </div>
       </div>
     </article>
   );
 }
 
-function KeyValue({ label, value }: { label: string; value: string }) {
+function KeyValue({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="key-value">
       <span>{label}</span>
-      <code>{value}</code>
+      <ArkivReference value={value} fallback={value ?? "Pendiente de publicacion"} />
     </div>
   );
 }

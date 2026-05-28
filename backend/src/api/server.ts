@@ -1,5 +1,8 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { createHash } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { basename, extname, isAbsolute, join, resolve } from "node:path";
+import { Readable } from "node:stream";
 import { config } from "dotenv";
 import { createArkivWalletClient } from "../arkiv/client.ts";
 import {
@@ -38,6 +41,29 @@ function sendJson(response: ServerResponse, statusCode: number, body: unknown) {
   response.end(JSON.stringify(body));
 }
 
+function uploadContentType(pathname: string) {
+  const extension = extname(pathname).toLowerCase();
+
+  if (extension === ".png") return "image/png";
+  if (extension === ".jpg" || extension === ".jpeg") return "image/jpeg";
+  if (extension === ".webp") return "image/webp";
+
+  return "application/octet-stream";
+}
+
+async function sendUpload(response: ServerResponse, pathname: string) {
+  const uploadsDirSetting = process.env.UPLOADS_DIR?.trim() || "./uploads";
+  const directory = isAbsolute(uploadsDirSetting) ? uploadsDirSetting : resolve(process.cwd(), uploadsDirSetting);
+  const fileName = basename(decodeURIComponent(pathname));
+  const buffer = await readFile(join(directory, fileName));
+
+  response.writeHead(200, {
+    "Access-Control-Allow-Origin": "http://127.0.0.1:5173",
+    "Content-Type": uploadContentType(fileName),
+  });
+  response.end(buffer);
+}
+
 async function readJson<T>(request: IncomingMessage): Promise<T> {
   const chunks: Buffer[] = [];
 
@@ -49,12 +75,29 @@ async function readJson<T>(request: IncomingMessage): Promise<T> {
   return text ? (JSON.parse(text) as T) : ({} as T);
 }
 
+async function readFormData(request: IncomingMessage): Promise<FormData> {
+  const webRequest = new Request("http://127.0.0.1", {
+    method: request.method,
+    headers: request.headers as HeadersInit,
+    body: Readable.toWeb(request) as BodyInit,
+    duplex: "half",
+  } as RequestInit & { duplex: "half" });
+
+  return webRequest.formData();
+}
+
 async function loadState(context: ApiContext) {
-  const jobs = await context.repositories.jobs.list();
+  const [users, services, providerProfiles, jobs, reviews] = await Promise.all([
+    context.repositories.users.list(),
+    context.repositories.services.list(),
+    context.repositories.services.listProviderProfiles(),
+    context.repositories.jobs.list(),
+    context.repositories.reviews.list(),
+  ]);
   const evidence = (await Promise.all(jobs.map((job) => context.repositories.evidence.listByJobId(job.id)))).flat();
   const arkivEvents = await context.repositories.arkivEvents.list();
 
-  return { jobs, evidence, arkivEvents };
+  return { users, services, providerProfiles, jobs, evidence, reviews, arkivEvents };
 }
 
 async function reloadJob(id: string, context: ApiContext): Promise<Job> {
@@ -158,10 +201,26 @@ async function updateJobStatus(jobId: string, status: JobStatus, context: ApiCon
   return loadState(context);
 }
 
-function evidenceHash(input: Pick<CreateEvidenceInput, "jobId" | "type" | "localFilePath" | "description">) {
+function evidenceHash(buffer: Buffer) {
+  return createHash("sha256").update(buffer).digest("hex");
+}
+
+function metadataEvidenceHash(input: Pick<CreateEvidenceInput, "jobId" | "type" | "localFilePath" | "description">) {
   return createHash("sha256")
     .update(`${input.jobId}:${input.type}:${input.localFilePath}:${input.description ?? ""}:${Date.now()}`)
     .digest("hex");
+}
+
+function sanitizeFileName(value: string, fallback: string) {
+  const sanitized = value.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").trim();
+  return sanitized || fallback;
+}
+
+async function persistLocalUpload(fileName: string, buffer: Buffer) {
+  const uploadsDirSetting = process.env.UPLOADS_DIR?.trim() || "./uploads";
+  const uploadsDir = isAbsolute(uploadsDirSetting) ? uploadsDirSetting : resolve(process.cwd(), uploadsDirSetting);
+  await mkdir(uploadsDir, { recursive: true });
+  await writeFile(join(uploadsDir, fileName), buffer);
 }
 
 async function route(request: IncomingMessage, response: ServerResponse) {
@@ -172,6 +231,11 @@ async function route(request: IncomingMessage, response: ServerResponse) {
 
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "127.0.0.1"}`);
   const context = { repositories };
+
+  if (request.method === "GET" && url.pathname.startsWith("/uploads/")) {
+    await sendUpload(response, url.pathname);
+    return;
+  }
 
   if (request.method === "GET" && url.pathname === "/api/state") {
     sendJson(response, 200, await loadState(context));
@@ -186,22 +250,53 @@ async function route(request: IncomingMessage, response: ServerResponse) {
 
   const evidenceMatch = url.pathname.match(/^\/api\/jobs\/([^/]+)\/evidence$/);
   if (request.method === "POST" && evidenceMatch) {
-    const body = await readJson<Omit<CreateEvidenceInput, "jobId" | "sha256Hash"> & { fileName?: string }>(request);
-    const fileName = body.fileName?.trim() || `${evidenceMatch[1]}_${body.type}.jpg`;
-    const input = {
-      jobId: evidenceMatch[1],
-      uploadedBy: body.uploadedBy,
-      type: body.type,
-      localFilePath: `uploads/${fileName}`,
-      publicFileUrl: `/uploads/${fileName}`,
-      description: body.description,
-      sha256Hash: evidenceHash({
+    const contentType = request.headers["content-type"] ?? "";
+    let input: CreateEvidenceInput;
+
+    if (contentType.includes("multipart/form-data")) {
+      const form = await readFormData(request);
+      const type = String(form.get("type"));
+      const fallbackFileName = `${evidenceMatch[1]}_${type}.jpg`;
+      const file = form.get("file");
+
+      if (!(file instanceof File) || file.size === 0) {
+        throw new Error("La evidencia requiere un archivo de imagen.");
+      }
+
+      const fileName = sanitizeFileName(file.name, fallbackFileName);
+      const fileBuffer = Buffer.from(await file.arrayBuffer());
+      await persistLocalUpload(fileName, fileBuffer);
+
+      input = {
         jobId: evidenceMatch[1],
+        uploadedBy: String(form.get("uploadedBy")),
+        type: type as CreateEvidenceInput["type"],
+        localFilePath: `uploads/${fileName}`,
+        publicFileUrl: `/uploads/${fileName}`,
+        description: String(form.get("description") ?? ""),
+        sha256Hash: evidenceHash(fileBuffer),
+        fileBuffer,
+        fileName,
+        contentType: file.type || "application/octet-stream",
+      };
+    } else {
+      const body = await readJson<Omit<CreateEvidenceInput, "jobId" | "sha256Hash"> & { fileName?: string }>(request);
+      const fileName = sanitizeFileName(body.fileName?.trim() || `${evidenceMatch[1]}_${body.type}.jpg`, `${evidenceMatch[1]}_${body.type}.jpg`);
+      input = {
+        jobId: evidenceMatch[1],
+        uploadedBy: body.uploadedBy,
         type: body.type,
         localFilePath: `uploads/${fileName}`,
+        publicFileUrl: `/uploads/${fileName}`,
         description: body.description,
-      }),
-    };
+        sha256Hash: metadataEvidenceHash({
+          jobId: evidenceMatch[1],
+          type: body.type,
+          localFilePath: `uploads/${fileName}`,
+          description: body.description,
+        }),
+      };
+    }
 
     sendJson(response, 201, await createEvidence(input, context));
     return;

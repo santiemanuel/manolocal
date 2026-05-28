@@ -786,7 +786,7 @@ textarea:focus {
 
 .timeline-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) minmax(220px, 0.8fr);
+  grid-template-columns: auto minmax(0, 1fr) minmax(180px, 0.62fr);
   align-items: center;
   gap: 16px;
   min-height: 86px;
@@ -814,7 +814,39 @@ textarea:focus {
 }
 
 .timeline-proof {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
   min-width: 0;
+}
+
+.timeline-proof a,
+.arkiv-reference {
+  width: 100%;
+  max-width: 100%;
+  color: var(--blue);
+}
+
+.arkiv-reference {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  min-width: 0;
+  min-height: 28px;
+  padding: 5px 8px;
+  border: 1px solid rgba(43, 111, 215, 0.18);
+  border-radius: 6px;
+  background: rgba(43, 111, 215, 0.06);
+}
+
+.arkiv-reference svg {
+  flex: 0 0 auto;
+}
+
+.arkiv-reference code {
+  color: var(--blue);
+  font-size: 12px;
 }
 
 code {
@@ -836,6 +868,8 @@ code {
 
 .verification-panel {
   align-self: start;
+  min-width: 0;
+  overflow: hidden;
   padding: 24px;
   background: var(--stone);
 }
@@ -847,6 +881,7 @@ code {
 .key-value {
   display: grid;
   gap: 8px;
+  min-width: 0;
   padding: 14px 0;
   border-top: 1px solid rgba(0, 0, 0, 0.12);
 }
@@ -881,6 +916,7 @@ code {
 }
 
 .evidence-preview {
+  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -889,11 +925,32 @@ code {
   border-radius: 8px;
   background: var(--near-black);
   color: #ffffff;
+  overflow: hidden;
+}
+
+.evidence-preview img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .evidence-preview span {
+  position: relative;
+  z-index: 1;
+  width: max-content;
+  max-width: 100%;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.72);
   font-size: 13px;
   text-transform: uppercase;
+}
+
+.evidence-preview svg {
+  position: relative;
+  z-index: 1;
 }
 
 .evidence-card h3 {
@@ -920,6 +977,10 @@ code {
 .proof-state {
   color: var(--muted);
   font-size: 13px;
+}
+
+.proof-state .arkiv-reference {
+  width: auto;
 }
 
 .work-row {
@@ -955,7 +1016,8 @@ code {
   font-size: 28px;
 }
 
-.proof-list a {
+.proof-list a,
+.proof-list .pending-proof {
   min-width: 0;
   padding: 10px 0;
   border-top: 1px solid var(--card-border);
@@ -963,6 +1025,7 @@ code {
 
 .proof-list code {
   flex: 1;
+  min-width: 0;
 }
 
 .pending-proof,

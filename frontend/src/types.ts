@@ -4,6 +4,7 @@ export type User = {
   id: string;
   name: string;
   role: UserRole;
+  avatarUrl?: string | null;
   city: string | null;
   rating: number;
 };
@@ -12,15 +13,15 @@ export type Service = {
   id: string;
   name: string;
   category: string;
-  description: string;
-  basePrice: number;
-  icon: string;
+  description: string | null;
+  basePrice: number | null;
+  icon: string | null;
 };
 
 export type ProviderProfile = {
   id: string;
   user: User;
-  bio: string;
+  bio: string | null;
   serviceCategories: string[];
   experienceYears: number;
   verifiedJobsCount: number;
@@ -43,8 +44,8 @@ export type Job = {
   title: string;
   description: string;
   status: JobStatus;
-  addressArea: string;
-  scheduledDate: string;
+  addressArea: string | null;
+  scheduledDate: string | null;
   createdAt: string;
   updatedAt: string;
   arkivEntityKeyCreated: string | null;
@@ -70,8 +71,8 @@ export type JobEvidence = {
   uploadedBy: string;
   type: EvidenceType;
   localFilePath: string;
-  publicFileUrl: string;
-  description: string;
+  publicFileUrl: string | null;
+  description: string | null;
   sha256Hash: string;
   aiSummary: string | null;
   aiStatus: AiStatus;
@@ -103,8 +104,12 @@ export type ArkivEvent = {
 };
 
 export type RemoteState = {
+  users: User[];
+  services: Service[];
+  providerProfiles: ProviderProfile[];
   jobs: Job[];
   evidence: JobEvidence[];
+  reviews: Review[];
   arkivEvents: ArkivEvent[];
 };
 
@@ -114,6 +119,6 @@ export type Review = {
   clientId: string;
   providerId: string;
   rating: number;
-  comment: string;
+  comment: string | null;
   createdAt: string;
 };

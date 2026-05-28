@@ -1,13 +1,56 @@
-import { openDatabase } from "../src/db/connection.ts";
 import { createHash } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { isAbsolute, join, resolve } from "node:path";
+import { copyFile, mkdir, readFile } from "node:fs/promises";
+import { basename, isAbsolute, join, resolve } from "node:path";
+import { createArkivWalletClient } from "../src/arkiv/client.ts";
+import {
+  createAIReviewGeneratedEntity,
+  createEvidenceUploadedEntity,
+  createJobCompletedEntity,
+  createJobCreatedEntity,
+} from "../src/arkiv/event-publishers.ts";
+import { openDatabase } from "../src/db/connection.ts";
+import { createSqliteRepositories } from "../src/repositories/sqlite/db.ts";
+import type { AiStatus, ArkivEvent, EvidenceType, Job, JobEvidence, JobStatus } from "../src/repositories/ports.ts";
 
-const db = openDatabase();
+const now = "2026-05-28T12:00:00.000Z";
+const seedFilePrefix = "ml_seed_";
+const arkivEntityExplorerUrl = "https://data.arkiv.network";
+const arkivBlockExplorerUrl = "https://explorer.braga.hoodi.arkiv.network";
 
 type Row = Record<string, string | number | null>;
 
-function upsert(table: string, row: Row) {
+type EvidenceSeed = {
+  id: string;
+  jobId: string;
+  uploadedBy: string;
+  type: EvidenceType;
+  assetFileName: string;
+  description: string;
+  aiSummary: string;
+  aiStatus: AiStatus;
+  createdAt: string;
+};
+
+type JobSeed = {
+  finalStatus: JobStatus;
+  row: Row;
+};
+
+function uploadsDir() {
+  const setting = process.env.UPLOADS_DIR?.trim() || "./uploads";
+  return isAbsolute(setting) ? setting : resolve(process.cwd(), setting);
+}
+
+function entityExplorerUrl(entityKey: string) {
+  const params = new URLSearchParams({ q: `$key = "${entityKey}"` });
+  return `${arkivEntityExplorerUrl}/?${params.toString()}`;
+}
+
+function txExplorerUrl(txHash: string) {
+  return `${arkivBlockExplorerUrl}/tx/${txHash}`;
+}
+
+function upsert(db: ReturnType<typeof openDatabase>, table: string, row: Row) {
   const keys = Object.keys(row);
   const placeholders = keys.map(() => "?").join(", ");
   const updates = keys
@@ -24,22 +67,56 @@ function upsert(table: string, row: Row) {
   ).run(...keys.map((key) => row[key]));
 }
 
-const now = "2026-05-28T12:00:00.000Z";
-const uploadsDirSetting = process.env.UPLOADS_DIR?.trim() || "./uploads";
-const uploadsDir = isAbsolute(uploadsDirSetting)
-  ? uploadsDirSetting
-  : resolve(process.cwd(), uploadsDirSetting);
-
-function createEvidenceFile(fileName: string, content: string) {
-  mkdirSync(uploadsDir, { recursive: true });
-
-  const filePath = join(uploadsDir, fileName);
-  writeFileSync(filePath, content);
-
+function jobSeed(
+  id: string,
+  clientId: string,
+  providerId: string,
+  serviceId: string,
+  title: string,
+  description: string,
+  addressArea: string,
+  scheduledDate: string,
+): JobSeed {
   return {
-    local_file_path: `uploads/${fileName}`,
-    public_file_url: `/uploads/${fileName}`,
-    sha256_hash: createHash("sha256").update(content).digest("hex"),
+    finalStatus: "completed",
+    row: {
+      id,
+      client_id: clientId,
+      provider_id: providerId,
+      service_id: serviceId,
+      title,
+      description,
+      status: "requested",
+      address_area: addressArea,
+      scheduled_date: scheduledDate,
+      created_at: now,
+      updated_at: now,
+      arkiv_entity_key_created: null,
+      arkiv_tx_hash_created: null,
+    },
+  };
+}
+
+function evidenceSeed(
+  id: string,
+  jobId: string,
+  uploadedBy: string,
+  type: EvidenceType,
+  assetFileName: string,
+  description: string,
+  aiSummary: string,
+  aiStatus: AiStatus,
+): EvidenceSeed {
+  return {
+    id,
+    jobId,
+    uploadedBy,
+    type,
+    assetFileName,
+    description,
+    aiSummary,
+    aiStatus,
+    createdAt: `2026-05-28T12:${10 + Number(id.split("_").at(-1)) * 4}:00.000Z`,
   };
 }
 
@@ -113,7 +190,7 @@ const profiles: Row[] = [
     bio: "Plomero matriculado con experiencia en reparaciones residenciales.",
     service_categories: JSON.stringify(["plomeria", "reparaciones"]),
     experience_years: 8,
-    verified_jobs_count: 24,
+    verified_jobs_count: 42,
     rating_average: 4.9,
   },
   {
@@ -122,7 +199,7 @@ const profiles: Row[] = [
     bio: "Especialista en jardineria urbana y mantenimiento de patios.",
     service_categories: JSON.stringify(["jardineria", "mantenimiento"]),
     experience_years: 5,
-    verified_jobs_count: 18,
+    verified_jobs_count: 31,
     rating_average: 4.8,
   },
   {
@@ -131,7 +208,7 @@ const profiles: Row[] = [
     bio: "Tecnico electricista para instalaciones domesticas y mejoras simples.",
     service_categories: JSON.stringify(["electricidad", "mantenimiento"]),
     experience_years: 7,
-    verified_jobs_count: 31,
+    verified_jobs_count: 37,
     rating_average: 4.9,
   },
   {
@@ -140,7 +217,7 @@ const profiles: Row[] = [
     bio: "Equipo de limpieza profunda con foco en entregas verificables.",
     service_categories: JSON.stringify(["limpieza"]),
     experience_years: 4,
-    verified_jobs_count: 15,
+    verified_jobs_count: 22,
     rating_average: 4.6,
   },
   {
@@ -149,139 +226,63 @@ const profiles: Row[] = [
     bio: "Mantenimiento general, colocaciones y reparaciones rapidas.",
     service_categories: JSON.stringify(["reparaciones", "mantenimiento"]),
     experience_years: 6,
-    verified_jobs_count: 22,
+    verified_jobs_count: 26,
     rating_average: 4.7,
   },
 ];
 
-const jobs: Row[] = [
-  {
-    id: "job_001",
-    client_id: "client_001",
-    provider_id: "provider_001",
-    service_id: "service_plumbing",
-    title: "Perdida bajo cocina",
-    description: "Reparacion de perdida de agua debajo de la cocina.",
-    status: "completed",
-    address_area: "Palermo",
-    scheduled_date: "2026-05-29T10:00:00.000Z",
-    created_at: now,
-    updated_at: now,
-    arkiv_entity_key_created: null,
-    arkiv_tx_hash_created: null,
-  },
-  {
-    id: "job_002",
-    client_id: "client_002",
-    provider_id: "provider_002",
-    service_id: "service_gardening",
-    title: "Corte de cesped",
-    description: "Corte de cesped y limpieza de patio posterior.",
-    status: "ai_reviewed",
-    address_area: "Nueva Cordoba",
-    scheduled_date: "2026-05-30T09:00:00.000Z",
-    created_at: now,
-    updated_at: now,
-    arkiv_entity_key_created: null,
-    arkiv_tx_hash_created: null,
-  },
-  {
-    id: "job_003",
-    client_id: "client_003",
-    provider_id: "provider_003",
-    service_id: "service_electricity",
-    title: "Cambio de toma",
-    description: "Reemplazo de toma electrica con evidencia de avance.",
-    status: "in_progress",
-    address_area: "Centro",
-    scheduled_date: "2026-06-01T15:00:00.000Z",
-    created_at: now,
-    updated_at: now,
-    arkiv_entity_key_created: null,
-    arkiv_tx_hash_created: null,
-  },
-  {
-    id: "job_004",
-    client_id: "client_001",
-    provider_id: "provider_004",
-    service_id: "service_cleaning",
-    title: "Limpieza profunda",
-    description: "Limpieza profunda de departamento previo a mudanza.",
-    status: "completed",
-    address_area: "Recoleta",
-    scheduled_date: "2026-06-02T08:30:00.000Z",
-    created_at: now,
-    updated_at: now,
-    arkiv_entity_key_created: null,
-    arkiv_tx_hash_created: null,
-  },
+const jobSeeds: JobSeed[] = [
+  jobSeed(
+    "job_001",
+    "client_001",
+    "provider_001",
+    "service_plumbing",
+    "Perdida bajo cocina",
+    "Reparacion de perdida de agua debajo de la cocina.",
+    "Palermo",
+    "2026-05-29T10:00:00.000Z",
+  ),
+  jobSeed(
+    "job_002",
+    "client_002",
+    "provider_002",
+    "service_gardening",
+    "Corte de cesped",
+    "Corte de cesped y limpieza de patio posterior.",
+    "Nueva Cordoba",
+    "2026-05-30T09:00:00.000Z",
+  ),
+  jobSeed(
+    "job_003",
+    "client_003",
+    "provider_003",
+    "service_electricity",
+    "Cambio de toma",
+    "Reemplazo de toma electrica con evidencia de avance y cierre.",
+    "Centro",
+    "2026-06-01T15:00:00.000Z",
+  ),
+  jobSeed(
+    "job_004",
+    "client_001",
+    "provider_004",
+    "service_cleaning",
+    "Limpieza profunda",
+    "Limpieza profunda de departamento previo a mudanza.",
+    "Recoleta",
+    "2026-06-02T08:30:00.000Z",
+  ),
 ];
 
-const evidence: Row[] = [
-  {
-    id: "evidence_001",
-    job_id: "job_001",
-    uploaded_by: "provider_001",
-    type: "before",
-    ...createEvidenceFile(
-      "job_001_before.txt",
-      "Evidencia inicial: humedad visible debajo de la cocina antes de la reparacion.",
-    ),
-    description: "Estado inicial de la perdida bajo la cocina.",
-    ai_summary: "Se observa humedad debajo de la cocina antes de la reparacion.",
-    ai_status: "valid",
-    arkiv_entity_key: null,
-    arkiv_tx_hash: null,
-    created_at: now,
-  },
-  {
-    id: "evidence_002",
-    job_id: "job_001",
-    uploaded_by: "provider_001",
-    type: "after",
-    ...createEvidenceFile(
-      "job_001_after.txt",
-      "Evidencia final: reparacion terminada sin perdida visible bajo la cocina.",
-    ),
-    description: "Reparacion terminada sin perdida visible.",
-    ai_summary: "La imagen indica una reparacion finalizada y sin perdida visible.",
-    ai_status: "valid",
-    arkiv_entity_key: null,
-    arkiv_tx_hash: null,
-    created_at: now,
-  },
-  {
-    id: "evidence_003",
-    job_id: "job_002",
-    uploaded_by: "provider_002",
-    type: "after",
-    ...createEvidenceFile(
-      "job_002_after.txt",
-      "Evidencia final: patio posterior con cesped recortado y zona despejada.",
-    ),
-    description: "Patio posterior luego del corte de cesped.",
-    ai_summary: "Se observa cesped recortado y el area despejada.",
-    ai_status: "valid",
-    arkiv_entity_key: null,
-    arkiv_tx_hash: null,
-    created_at: now,
-  },
-  {
-    id: "evidence_004",
-    job_id: "job_003",
-    uploaded_by: "provider_003",
-    type: "progress",
-    ...createEvidenceFile(
-      "job_003_progress.txt",
-      "Evidencia de avance: toma electrica abierta durante el reemplazo.",
-    ),
-    description: "Avance durante el cambio de toma.",
-    ai_summary: "Se observa trabajo electrico en progreso; falta evidencia final.",
-    ai_status: "warning",
-    arkiv_entity_key: null,
-    arkiv_tx_hash: null,
-    created_at: now,
-  },
+const evidenceSeeds: EvidenceSeed[] = [
+  evidenceSeed("evidence_001", "job_001", "provider_001", "before", "job_001_before.png", "Estado inicial de la perdida bajo la cocina.", "Se observa una perdida activa debajo de la cocina antes de la reparacion.", "valid"),
+  evidenceSeed("evidence_002", "job_001", "provider_001", "after", "job_001_after.png", "Reparacion terminada sin perdida visible.", "La imagen indica una reparacion finalizada y sin perdida visible.", "valid"),
+  evidenceSeed("evidence_003", "job_002", "provider_002", "before", "job_002_before.png", "Patio posterior antes del corte de cesped.", "Se observa cesped alto y area pendiente de mantenimiento.", "valid"),
+  evidenceSeed("evidence_004", "job_002", "provider_002", "after", "job_002_after.png", "Patio posterior luego del corte de cesped.", "Se observa cesped recortado y el area despejada.", "valid"),
+  evidenceSeed("evidence_005", "job_003", "provider_003", "progress", "job_003_progress.png", "Avance durante el cambio de toma.", "Se observa trabajo electrico en progreso; requiere evidencia final.", "warning"),
+  evidenceSeed("evidence_006", "job_003", "provider_003", "after", "job_003_after.png", "Toma reemplazada y frente colocado.", "La toma parece instalada y el area de trabajo quedo ordenada.", "valid"),
+  evidenceSeed("evidence_007", "job_004", "provider_004", "before", "job_004_before.png", "Departamento antes de la limpieza profunda.", "Se observa espacio desordenado antes de iniciar la limpieza.", "valid"),
+  evidenceSeed("evidence_008", "job_004", "provider_004", "after", "job_004_after.png", "Departamento limpio y listo para entregar.", "El ambiente se observa limpio, despejado y listo para entrega.", "valid"),
 ];
 
 const reviews: Row[] = [
@@ -294,7 +295,29 @@ const reviews: Row[] = [
     comment: "Trabajo terminado correctamente y con evidencia clara.",
     arkiv_entity_key: null,
     arkiv_tx_hash: null,
-    created_at: now,
+    created_at: "2026-05-28T13:00:00.000Z",
+  },
+  {
+    id: "review_002",
+    job_id: "job_002",
+    client_id: "client_002",
+    provider_id: "provider_002",
+    rating: 5,
+    comment: "El patio quedo prolijo y la evidencia muestra el cambio.",
+    arkiv_entity_key: null,
+    arkiv_tx_hash: null,
+    created_at: "2026-05-28T13:10:00.000Z",
+  },
+  {
+    id: "review_003",
+    job_id: "job_003",
+    client_id: "client_003",
+    provider_id: "provider_003",
+    rating: 4,
+    comment: "Buen trabajo; la primera evidencia mostro avance y luego se completo.",
+    arkiv_entity_key: null,
+    arkiv_tx_hash: null,
+    created_at: "2026-05-28T13:15:00.000Z",
   },
   {
     id: "review_004",
@@ -305,29 +328,161 @@ const reviews: Row[] = [
     comment: "El departamento quedo listo para entregar.",
     arkiv_entity_key: null,
     arkiv_tx_hash: null,
-    created_at: now,
+    created_at: "2026-05-28T13:20:00.000Z",
   },
 ];
 
-const seed = db.transaction(() => {
-  for (const row of users) upsert("users", row);
-  for (const row of services) upsert("services", row);
-  for (const row of profiles) upsert("provider_profiles", row);
-  for (const row of jobs) upsert("jobs", row);
-  for (const row of evidence) upsert("job_evidence", row);
-  for (const row of reviews) upsert("reviews", row);
-});
+async function buildEvidenceRows() {
+  const rows: Row[] = [];
+  const targetDir = uploadsDir();
 
-seed();
+  await mkdir(targetDir, { recursive: true });
 
-console.log("seed complete");
-console.table({
-  users: db.prepare("SELECT COUNT(*) AS count FROM users").get(),
-  services: db.prepare("SELECT COUNT(*) AS count FROM services").get(),
-  provider_profiles: db.prepare("SELECT COUNT(*) AS count FROM provider_profiles").get(),
-  jobs: db.prepare("SELECT COUNT(*) AS count FROM jobs").get(),
-  job_evidence: db.prepare("SELECT COUNT(*) AS count FROM job_evidence").get(),
-  reviews: db.prepare("SELECT COUNT(*) AS count FROM reviews").get(),
-});
+  for (const seed of evidenceSeeds) {
+    const sourcePath = resolve(process.cwd(), "db", "seed-assets", "evidence", seed.assetFileName);
+    const buffer = await readFile(sourcePath);
+    const fileName = `${seedFilePrefix}${basename(seed.assetFileName)}`;
 
-db.close();
+    await copyFile(sourcePath, join(targetDir, fileName));
+
+    rows.push({
+      id: seed.id,
+      job_id: seed.jobId,
+      uploaded_by: seed.uploadedBy,
+      type: seed.type,
+      local_file_path: `uploads/${fileName}`,
+      public_file_url: `/uploads/${fileName}`,
+      description: seed.description,
+      sha256_hash: createHash("sha256").update(buffer).digest("hex"),
+      ai_summary: null,
+      ai_status: "pending",
+      arkiv_entity_key: null,
+      arkiv_tx_hash: null,
+      created_at: seed.createdAt,
+    });
+  }
+
+  return rows;
+}
+
+function resetTables(db: ReturnType<typeof openDatabase>) {
+  for (const table of [
+    "arkiv_events",
+    "reviews",
+    "job_evidence",
+    "jobs",
+    "provider_profiles",
+    "services",
+    "users",
+  ]) {
+    db.prepare(`DELETE FROM ${table}`).run();
+  }
+}
+
+function insertBaseRows(db: ReturnType<typeof openDatabase>, evidenceRows: Row[]) {
+  const seed = db.transaction(() => {
+    resetTables(db);
+    for (const row of users) upsert(db, "users", row);
+    for (const row of services) upsert(db, "services", row);
+    for (const row of profiles) upsert(db, "provider_profiles", row);
+    for (const seedJob of jobSeeds) upsert(db, "jobs", seedJob.row);
+    for (const row of evidenceRows) upsert(db, "job_evidence", row);
+    for (const row of reviews) upsert(db, "reviews", row);
+  });
+
+  seed();
+}
+
+async function requireJob(job: Job | null, id: string) {
+  if (!job) {
+    throw new Error(`No existe el trabajo sembrado ${id}.`);
+  }
+
+  return job;
+}
+
+async function requireEvidence(evidence: JobEvidence | null, id: string) {
+  if (!evidence) {
+    throw new Error(`No existe la evidencia sembrada ${id}.`);
+  }
+
+  return evidence;
+}
+
+function logArkivEvent(event: ArkivEvent) {
+  console.log(`[arkiv] ${event.eventType} ${event.localSubjectId}`);
+  console.log(`  entityKey: ${event.entityKey}`);
+  console.log(`  entity:    ${entityExplorerUrl(event.entityKey)}`);
+  console.log(`  txHash:    ${event.txHash}`);
+  console.log(`  tx:        ${txExplorerUrl(event.txHash)}`);
+}
+
+async function publishArkivFlow() {
+  const repositories = createSqliteRepositories();
+  const walletClient = createArkivWalletClient();
+  const dependencies = {
+    walletClient,
+    jobsRepository: repositories.jobs,
+    evidenceRepository: repositories.evidence,
+    arkivEventsRepository: repositories.arkivEvents,
+  };
+
+  try {
+    for (const seedJob of jobSeeds) {
+      const jobId = String(seedJob.row.id);
+      let job = await requireJob(await repositories.jobs.findById(jobId), jobId);
+
+      logArkivEvent(await createJobCreatedEntity(job, dependencies));
+
+      const jobEvidenceSeeds = evidenceSeeds.filter((seed) => seed.jobId === jobId);
+      for (const seed of jobEvidenceSeeds) {
+        await repositories.jobs.updateStatus(job.id, "evidence_uploaded");
+        job = await requireJob(await repositories.jobs.findById(job.id), job.id);
+
+        const evidence = await requireEvidence(await repositories.evidence.findById(seed.id), seed.id);
+        logArkivEvent(await createEvidenceUploadedEntity(job, evidence, dependencies));
+
+        await repositories.evidence.attachAIReview(seed.id, {
+          summary: seed.aiSummary,
+          status: seed.aiStatus,
+        });
+        await repositories.jobs.updateStatus(job.id, "ai_reviewed");
+
+        job = await requireJob(await repositories.jobs.findById(job.id), job.id);
+        const reviewedEvidence = await requireEvidence(await repositories.evidence.findById(seed.id), seed.id);
+        logArkivEvent(await createAIReviewGeneratedEntity(job, reviewedEvidence, dependencies));
+      }
+
+      if (seedJob.finalStatus === "completed") {
+        await repositories.jobs.updateStatus(job.id, "completed");
+        job = await requireJob(await repositories.jobs.findById(job.id), job.id);
+        logArkivEvent(await createJobCompletedEntity(job, dependencies));
+      }
+    }
+
+    const [jobs, arkivEvents] = await Promise.all([repositories.jobs.list(), repositories.arkivEvents.list()]);
+    console.table({
+      jobs: jobs.length,
+      evidence: (await Promise.all(jobs.map((job) => repositories.evidence.listByJobId(job.id)))).flat().length,
+      arkivEvents: arkivEvents.length,
+    });
+  } finally {
+    repositories.close();
+  }
+}
+
+const evidenceRows = await buildEvidenceRows();
+const db = openDatabase();
+
+try {
+  insertBaseRows(db, evidenceRows);
+} finally {
+  db.close();
+}
+
+console.log("seed local complete: datos operativos y assets PNG reconstruidos");
+console.log("publicando flujo real en Arkiv Braga...");
+
+await publishArkivFlow();
+
+console.log("seed complete: referencias Arkiv reales guardadas en SQLite");

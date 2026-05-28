@@ -28,6 +28,16 @@ export type ProviderProfile = {
   ratingAverage: number;
 };
 
+export type Review = {
+  id: string;
+  jobId: string;
+  clientId: string;
+  providerId: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+};
+
 export type JobStatus =
   | "requested"
   | "accepted"
@@ -89,6 +99,9 @@ export type CreateEvidenceInput = {
   publicFileUrl?: string | null;
   description?: string | null;
   sha256Hash: string;
+  fileBuffer?: Buffer;
+  fileName?: string;
+  contentType?: string;
 };
 
 export type ArkivAttributeValue = string | number;
@@ -142,6 +155,14 @@ export interface ServicesRepository {
   listProviderProfiles(): Promise<ProviderProfile[]>;
 }
 
+export interface UsersRepository {
+  list(): Promise<User[]>;
+}
+
+export interface ReviewsRepository {
+  list(): Promise<Review[]>;
+}
+
 export interface ArkivEventsRepository {
   create(input: CreateArkivEventInput): Promise<ArkivEvent>;
   list(): Promise<ArkivEvent[]>;
@@ -152,5 +173,7 @@ export type RepositorySet = {
   jobs: JobsRepository;
   evidence: EvidenceRepository;
   services: ServicesRepository;
+  users: UsersRepository;
+  reviews: ReviewsRepository;
   arkivEvents: ArkivEventsRepository;
 };

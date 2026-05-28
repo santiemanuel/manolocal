@@ -1,4 +1,4 @@
-import type { CreateEvidenceInput, CreateJobInput, JobStatus, RemoteState } from "../types";
+import type { CreateJobInput, JobStatus, RemoteState } from "../types";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -7,6 +7,25 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       "Content-Type": "application/json",
       ...options?.headers,
     },
+  });
+
+  const data = (await response.json()) as unknown;
+
+  if (!response.ok) {
+    const message =
+      data && typeof data === "object" && "error" in data && typeof data.error === "string"
+        ? data.error
+        : "No se pudo completar la operacion.";
+    throw new Error(message);
+  }
+
+  return data as T;
+}
+
+async function requestForm<T>(path: string, body: FormData): Promise<T> {
+  const response = await fetch(path, {
+    method: "POST",
+    body,
   });
 
   const data = (await response.json()) as unknown;
@@ -33,11 +52,8 @@ export function createJob(input: CreateJobInput) {
   });
 }
 
-export function createEvidence(jobId: string, input: Omit<CreateEvidenceInput, "jobId" | "sha256Hash"> & { fileName?: string }) {
-  return request<RemoteState>(`/api/jobs/${jobId}/evidence`, {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+export function createEvidence(jobId: string, input: FormData) {
+  return requestForm<RemoteState>(`/api/jobs/${jobId}/evidence`, input);
 }
 
 export function updateJobStatus(jobId: string, status: JobStatus) {
