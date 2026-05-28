@@ -947,6 +947,8 @@ Trabajo creado en SQLite
 
 Mapa de pantallas y estados.
 
+Entregable creado: [`docs/flujo-principal-usuario-etapa-6.md`](docs/flujo-principal-usuario-etapa-6.md)
+
 ### Criterio de aceptacion
 
 El flujo se entiende sin explicar la base de datos ni el codigo.
