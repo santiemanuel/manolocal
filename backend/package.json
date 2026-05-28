@@ -8,7 +8,9 @@
     "db:migrate": "tsx db/migrate.ts",
     "db:seed": "tsx db/seed.ts",
     "db:inspect": "tsx db/inspect.ts",
+    "repositories:inspect": "tsx db/inspect-repositories.ts",
     "db:setup": "npm run db:migrate && npm run db:seed",
+    "typecheck": "tsc --noEmit",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
