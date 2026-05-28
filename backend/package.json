@@ -1,0 +1,28 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "arkiv:hello": "tsx scripts/arkiv-hello.ts",
+    "db:migrate": "tsx db/migrate.ts",
+    "db:seed": "tsx db/seed.ts",
+    "db:inspect": "tsx db/inspect.ts",
+    "db:setup": "npm run db:migrate && npm run db:seed",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@arkiv-network/sdk": "^0.6.8",
+    "better-sqlite3": "^12.10.0",
+    "dotenv": "^17.4.2",
+    "tsx": "^4.22.3",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13"
+  }
+}
