@@ -3,6 +3,7 @@ import {
   ArrowRight,
   Bot,
   BriefcaseBusiness,
+  ChevronDown,
   CheckCircle2,
   Clock3,
   Database,
@@ -12,6 +13,7 @@ import {
   Home,
   LayoutDashboard,
   Menu,
+  MapPin,
   Search,
   Settings,
   ShieldCheck,
@@ -390,35 +392,123 @@ function Announcement() {
 function HomePage({ jobs, evidence }: { jobs: Job[]; evidence: JobEvidence[] }) {
   const completed = jobs.filter((job) => job.status === "completed").length;
   const verifiedEvidence = evidence.filter((item) => item.arkivEntityKey).length;
+  const serviceChoices = [
+    { label: "Limpieza", icon: <Sparkles size={17} /> },
+    { label: "Electricidad", icon: <Zap size={17} /> },
+    { label: "Jardinería", icon: <Sprout size={17} /> },
+    { label: "Mantenimiento general", icon: <Settings size={17} /> },
+    { label: "Plomería", icon: <Wrench size={17} /> },
+    { label: "Reparaciones", icon: <Hammer size={17} /> },
+  ];
+  const zoneChoices = ["Este", "Oeste", "Norte", "Sur"];
+  const [selectedService, setSelectedService] = useState(serviceChoices[0].label);
+  const [selectedZone, setSelectedZone] = useState("");
+  const [openDropdown, setOpenDropdown] = useState<"service" | "zone" | null>("service");
+
+  function submitHeroSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const service = initialServices.find((item) => item.name.toLowerCase() === selectedService.toLowerCase());
+    navigate(service ? `/services/${service.id}/providers` : "/services");
+  }
+
+  function movePromoMarquee(event: MouseEvent<HTMLElement>) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const offset = (event.clientX - bounds.left) / bounds.width - 0.5;
+    event.currentTarget.style.setProperty("--marquee-x", `${offset * 64}px`);
+  }
+
+  function resetPromoMarquee(event: MouseEvent<HTMLElement>) {
+    event.currentTarget.style.setProperty("--marquee-x", "0px");
+  }
 
   return (
     <main>
       <section className="hero">
         <div className="hero-copy">
-          <span className="eyebrow">Marketplace local con reputación verificable</span>
-          <h1>Servicios con evidencia que se puede auditar.</h1>
+          <h1>Servicios con evidencia que se pueden contratar.</h1>
           <p>
-            Clientes y prestadores siguen el trabajo desde la solicitud hasta el cierre, con fotos, resumen IA y eventos
-            publicados como historial confiable.
+            Buscá servicios, elegí tu zona y contratá con confianza.
+            <br></br>
+            Clientes y prestadores son respaldados con evidencia verificable.
           </p>
-          <div className="hero-actions">
-            <a className="button primary" href="/services" onClick={linkTo("/services")}>
+          <form className="hero-search-card" onSubmit={submitHeroSearch}>
+            <div className="hero-search-field">
+              <span className="hero-search-label">¿Qué servicio necesitás?</span>
+              <button
+                className="hero-select-trigger"
+                type="button"
+                aria-expanded={openDropdown === "service"}
+                onClick={() => setOpenDropdown(openDropdown === "service" ? null : "service")}
+              >
+                <Search size={18} />
+                <span>{selectedService}</span>
+                <ChevronDown size={18} />
+              </button>
+              {openDropdown === "service" && (
+                <div className="hero-select-menu">
+                  {serviceChoices.map((choice) => (
+                    <button
+                      className={choice.label === selectedService ? "hero-select-option selected" : "hero-select-option"}
+                      type="button"
+                      key={choice.label}
+                      onClick={() => {
+                        setSelectedService(choice.label);
+                        setOpenDropdown(null);
+                      }}
+                    >
+                      {choice.icon}
+                      <span>{choice.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="hero-search-field">
+              <span className="hero-search-label">¿En qué zona?</span>
+              <button
+                className="hero-select-trigger"
+                type="button"
+                aria-expanded={openDropdown === "zone"}
+                onClick={() => setOpenDropdown(openDropdown === "zone" ? null : "zone")}
+              >
+                <MapPin size={18} />
+                <span>{selectedZone || "Seleccionar zona"}</span>
+                <ChevronDown size={18} />
+              </button>
+              {openDropdown === "zone" && (
+                <div className="hero-select-menu">
+                  {zoneChoices.map((zone) => (
+                    <button
+                      className={zone === selectedZone ? "hero-select-option selected" : "hero-select-option"}
+                      type="button"
+                      key={zone}
+                      onClick={() => {
+                        setSelectedZone(zone);
+                        setOpenDropdown(null);
+                      }}
+                    >
+                      <MapPin size={17} />
+                      <span>{zone}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button className="button primary hero-search-submit" type="submit">
               Buscar servicios
               <ArrowRight size={17} />
-            </a>
-            <a className="button text" href="/provider" onClick={linkTo("/provider")}>
-              Panel prestador
-            </a>
-          </div>
+            </button>
+          </form>
         </div>
         <div className="hero-media">
           <img src={heroEvidence} alt="Técnico documentando una reparación para evidencia verificable" />
           <div className="console-panel">
             <div className="console-topline">
-              <span>job_001</span>
+              <div className="console-title">Pérdida bajo cocina</div>
               <span className="status-dot verified">verificado</span>
             </div>
-            <div className="console-title">Pérdida bajo cocina</div>
             <div className="console-row">
               <ShieldCheck size={16} />
               <span>2 evidencias con hash SHA-256</span>
@@ -436,6 +526,25 @@ function HomePage({ jobs, evidence }: { jobs: Job[]; evidence: JobEvidence[] }) 
         <Metric label="Cierres completos" value={completed.toString()} />
         <Metric label="Evidencias verificadas" value={verifiedEvidence.toString()} />
         <Metric label="Red objetivo" value="Braga" />
+      </section>
+
+      <section
+        className="promo-marquee"
+        aria-label="Promoción de bienvenida"
+        onMouseMove={movePromoMarquee}
+        onMouseLeave={resetPromoMarquee}
+      >
+        <div className="promo-marquee-track">
+          <div className="promo-copy">
+            <span>Promo de bienvenida</span>
+            <h2>20% OFF en tu primer servicio</h2>
+            <p>Solo para nuevos usuarios</p>
+          </div>
+          <a className="promo-action" href="/services" onClick={linkTo("/services")}>
+            Aprovechá ahora
+            <ArrowRight size={18} />
+          </a>
+        </div>
       </section>
 
       <section className="section">
