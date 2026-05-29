@@ -232,7 +232,7 @@ Se crea cuando el cliente solicita un trabajo.
 {
   "eventType": "job_created",
   "jobId": "job_001",
-  "serviceType": "plomeria",
+  "serviceType": "plomería",
   "clientId": "client_demo_001",
   "providerId": "provider_demo_003",
   "description": "Reparación de pérdida de agua debajo de la cocina",
@@ -248,7 +248,7 @@ Se crea cuando el cliente solicita un trabajo.
   { "key": "track", "value": "arkiv" },
   { "key": "entityType", "value": "job_created" },
   { "key": "jobId", "value": "job_001" },
-  { "key": "serviceType", "value": "plomeria" },
+  { "key": "serviceType", "value": "plomería" },
   { "key": "status", "value": "requested" }
 ]
 ```
@@ -283,7 +283,7 @@ Se crea cuando el prestador sube evidencia.
   { "key": "entityType", "value": "evidence_uploaded" },
   { "key": "jobId", "value": "job_001" },
   { "key": "evidenceType", "value": "after" },
-  { "key": "serviceType", "value": "plomeria" }
+  { "key": "serviceType", "value": "plomería" }
 ]
 ```
 
@@ -318,7 +318,7 @@ Se crea cuando la IA analiza la evidencia.
   { "key": "entityType", "value": "ai_review_generated" },
   { "key": "jobId", "value": "job_001" },
   { "key": "aiStatus", "value": "valid" },
-  { "key": "serviceType", "value": "plomeria" }
+  { "key": "serviceType", "value": "plomería" }
 ]
 ```
 

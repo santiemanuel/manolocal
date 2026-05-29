@@ -7,17 +7,17 @@
 **Caso de uso principal:** contratacion de oficios y servicios con evidencia verificable del trabajo realizado.  
 **Track de competencia:** datos verificables + IA usando Arkiv.
 
-Esta es una version alternativa del plan inicial. No usa Directus como base de datos durante la primera etapa. En su lugar, guarda los datos operativos en una base SQLite local para poder seguir modelando el producto hasta tener acceso a Directus.
+Esta es una versión alternativa del plan inicial. No usa Directus como base de datos durante la primera etapa. En su lugar, guarda los datos operativos en una base SQLite local para poder seguir modelando el producto hasta tener acceso a Directus.
 
-La arquitectura queda preparada para agregar Directus despues mediante una capa de repositorios/adaptadores. La app no deberia depender directamente de SQLite ni de Directus desde las pantallas o casos de uso.
+La arquitectura queda preparada para agregar Directus después mediante una capa de repositorios/adaptadores. La app no debería depender directamente de SQLite ni de Directus desde las pantallas o casos de uso.
 
 ---
 
-## 2. Decision temporal de arquitectura
+## 2. Decisión temporal de arquitectura
 
-### Decision
+### Decisión
 
-Usar **SQLite local** como base operativa del MVP mientras Directus no esta disponible.
+Usar **SQLite local** como base operativa del MVP mientras Directus no está disponible.
 
 ### Motivo
 
@@ -25,7 +25,7 @@ Usar **SQLite local** como base operativa del MVP mientras Directus no esta disp
 - Permite sembrar usuarios, servicios, trabajos y evidencias iniciales.
 - Evita bloquear el desarrollo por falta de Directus.
 - Mantiene el foco del hackathon en Arkiv + IA.
-- Facilita migrar despues a Directus si la capa de datos queda aislada.
+- Facilita migrar después a Directus si la capa de datos queda aislada.
 
 ### Regla importante
 
@@ -33,18 +33,18 @@ SQLite guarda datos operativos editables. Arkiv guarda eventos verificables impo
 
 SQLite responde:
 
-- que servicios mostrar;
-- que usuarios existen;
-- que trabajos se ven en la app;
-- que archivos locales estan asociados a una evidencia;
-- que `entityKey` y `txHash` quedaron asociados a cada evento.
+- qué servicios mostrar;
+- qué usuarios existen;
+- qué trabajos se ven en la app;
+- qué archivos locales están asociados a una evidencia;
+- qué `entityKey` y `txHash` quedaron asociados a cada evento.
 
 Arkiv responde:
 
-- que evento verificable se publico;
-- quien lo creo;
-- cuando se publico;
-- que atributos consultables tiene;
+- qué evento verificable se público;
+- quién lo creó;
+- cuándo se publicó;
+- qué atributos consultables tiene;
 - si el historial puede auditarse sin confiar solo en la base local.
 
 ---
@@ -57,10 +57,10 @@ La competencia pide construir un prototipo donde importen los datos confiables y
    La app debe leer o escribir datos confiables y usar IA con un caso de uso claro.
 
 2. **Arkiv como parte central del flujo**  
-   Arkiv no debe aparecer solo como una integracion decorativa al final. Debe estar integrado en el proceso principal del producto.
+   Arkiv no debe aparecer solo como una integración decorativa al final. Debe estar integrado en el proceso principal del producto.
 
 3. **Dato no editable a escondidas**  
-   El usuario o jurado debe poder entender por que un dato guardado en Arkiv tiene mas valor que un dato guardado solamente en SQLite.
+   El usuario o jurado debe poder entender por qué un dato guardado en Arkiv tiene más valor que un dato guardado solamente en SQLite.
 
 4. **Uso de entidades consultables**  
    Las entidades de Arkiv deben tener `payload`, `contentType`, `attributes`, `entityKey` y vencimiento cuando aplique.
@@ -77,11 +77,11 @@ La competencia pide construir un prototipo donde importen los datos confiables y
 
 El proyecto debe presentarse asi:
 
-> Plataforma de servicios donde cada trabajo genera evidencia verificable: fotos, estados, validaciones de IA y cierre del servicio. SQLite funciona como base operativa local del prototipo, mientras Arkiv funciona como capa verificable para demostrar quien creo cada evidencia, cuando se publico y que atributos tiene.
+> Plataforma de servicios donde cada trabajo genera evidencia verificable: fotos, estados, validaciones de IA y cierre del servicio. SQLite funciona como base operativa local del prototipo, mientras Arkiv funciona como capa verificable para demostrar quién creó cada evidencia, cuándo se publicó y qué atributos tiene.
 
 El diferencial no es la base SQLite. SQLite es una herramienta temporal de desarrollo. El diferencial competitivo sigue siendo:
 
-> Historial verificable de trabajo y reputacion portable para prestadores de servicios.
+> Historial verificable de trabajo y reputación portable para prestadores de servicios.
 
 ---
 
@@ -89,7 +89,7 @@ El diferencial no es la base SQLite. SQLite es una herramienta temporal de desar
 
 ### Incluir en el MVP
 
-- Catalogo de servicios.
+- Catálogo de servicios.
 - Perfiles de prestadores.
 - Creacion simulada de solicitud de trabajo.
 - Estados del trabajo: `requested`, `accepted`, `in_progress`, `evidence_uploaded`, `ai_reviewed`, `completed`.
@@ -98,13 +98,13 @@ El diferencial no es la base SQLite. SQLite es una herramienta temporal de desar
 - Publicacion de eventos importantes en Arkiv.
 - Lectura de entidad Arkiv desde la app.
 - Consulta por atributos usando `arkiv_query`.
-- Analisis de IA sobre la evidencia.
+- Análisis de IA sobre la evidencia.
 - Resumen del trabajo generado por IA.
 - Vista de historial verificable del trabajo.
 - Panel para cliente, prestador y administrador.
 - Capa de repositorios lista para reemplazar SQLite por Directus.
 
-### No incluir todavia
+### No incluir todavía
 
 - Pagos reales.
 - Stellar real.
@@ -123,7 +123,7 @@ El diferencial no es la base SQLite. SQLite es una herramienta temporal de desar
 ```text
 Frontend React / Vite / Tailwind
         |
-        | HTTP / acciones server-side
+        | HTTP / acciónes server-side
         v
 Backend Node / API Routes
         |
@@ -143,7 +143,7 @@ data/app.db         Braga Testnet
 uploads/ evidencia visual local
 ```
 
-### Capa preparada para Directus despues
+### Capa preparada para Directus después
 
 ```text
 Repository interfaces
@@ -155,7 +155,7 @@ SQLite adapter         Directus adapter       Test adapter
 actual                 futuro                 pruebas
 ```
 
-El frontend y los casos de uso deben hablar con interfaces como `JobsRepository`, `EvidenceRepository` y `ServicesRepository`. La implementacion concreta puede ser SQLite ahora y Directus despues.
+El frontend y los casos de uso deben hablar con interfaces como `JobsRepository`, `EvidenceRepository` y `ServicesRepository`. La implementación concreta puede ser SQLite ahora y Directus después.
 
 ### Responsabilidad de cada parte
 
@@ -163,11 +163,11 @@ El frontend y los casos de uso deben hablar con interfaces como `JobsRepository`
 |---|---|
 | React | Interfaz de usuario y flujo navegable |
 | Backend Node / API Routes | Casos de uso, validacion, escritura segura en Arkiv |
-| SQLite local | Datos operativos rapidos del MVP |
+| SQLite local | Datos operativos rápidos del MVP |
 | Carpeta `uploads/` | Evidencia visual local |
-| Arkiv | Evidencia verificable, auditoria y datos consultables |
+| Arkiv | Evidencia verificable, auditoría y datos consultables |
 | IA multimodal | Validacion, clasificacion y resumen de evidencia |
-| Repository interfaces | Contrato estable para cambiar SQLite por Directus despues |
+| Repository interfaces | Contrato estable para cambiar SQLite por Directus después |
 | Directus adapter futuro | Implementacion futura de los mismos repositorios |
 
 ---
@@ -232,7 +232,7 @@ Campos recomendados:
 
 ### `services`
 
-Catalogo de servicios.
+Catálogo de servicios.
 
 Campos recomendados:
 
@@ -245,8 +245,8 @@ Campos recomendados:
 
 Ejemplos:
 
-- Jardineria
-- Plomeria
+- Jardinería
+- Plomería
 - Electricidad
 - Limpieza
 - Reparaciones
@@ -326,7 +326,7 @@ Campos recomendados:
 
 ### `arkiv_events`
 
-Bitacora local de publicaciones en Arkiv. Esta tabla facilita depurar el flujo y reconstruir timelines.
+Bitácora local de publicaciones en Arkiv. Esta tabla facilita depurar el flujo y reconstruir timelines.
 
 Campos recomendados:
 
@@ -542,10 +542,10 @@ Se crea cuando el cliente solicita un trabajo.
 {
   "eventType": "job_created",
   "jobId": "job_001",
-  "serviceType": "plomeria",
+  "serviceType": "plomería",
   "clientId": "client_001",
   "providerId": "provider_003",
-  "description": "Reparacion de perdida de agua debajo de la cocina",
+  "description": "Reparación de pérdida de agua debajo de la cocina",
   "source": "sqlite_local",
   "createdAt": "2026-05-28T10:00:00Z"
 }
@@ -559,7 +559,7 @@ Se crea cuando el cliente solicita un trabajo.
   { "key": "track", "value": "arkiv" },
   { "key": "entityType", "value": "job_created" },
   { "key": "jobId", "value": "job_001" },
-  { "key": "serviceType", "value": "plomeria" },
+  { "key": "serviceType", "value": "plomería" },
   { "key": "status", "value": "requested" }
 ]
 ```
@@ -593,7 +593,7 @@ Se crea cuando el prestador sube evidencia.
   { "key": "entityType", "value": "evidence_uploaded" },
   { "key": "jobId", "value": "job_001" },
   { "key": "evidenceType", "value": "after" },
-  { "key": "serviceType", "value": "plomeria" }
+  { "key": "serviceType", "value": "plomería" }
 ]
 ```
 
@@ -609,7 +609,7 @@ Se crea cuando la IA analiza la evidencia.
   "jobId": "job_001",
   "evidenceId": "evidence_001",
   "model": "multimodal-ai",
-  "summary": "La imagen parece mostrar una reparacion terminada en la zona inferior de una cocina. No se observan perdidas visibles.",
+  "summary": "La imagen parece mostrar una reparación terminada en la zona inferior de una cocina. No se observan pérdidas visibles.",
   "classification": "work_completed",
   "confidence": 0.82,
   "warnings": [],
@@ -627,7 +627,7 @@ Se crea cuando la IA analiza la evidencia.
   { "key": "entityType", "value": "ai_review_generated" },
   { "key": "jobId", "value": "job_001" },
   { "key": "aiStatus", "value": "valid" },
-  { "key": "serviceType", "value": "plomeria" }
+  { "key": "serviceType", "value": "plomería" }
 ]
 ```
 
@@ -680,24 +680,24 @@ Alinear el producto con la consigna de la competencia antes de programar.
 - Definir el problema: falta de confianza en servicios entre particulares.
 - Definir el diferencial: evidencia verificable + IA.
 - Definir el flujo principal del producto.
-- Elegir 2 o 3 servicios para mostrar: plomeria, jardineria y electricidad.
-- Decidir que datos van a SQLite y que eventos van a Arkiv.
+- Elegir 2 o 3 servicios para mostrar: plomería, jardinería y electricidad.
+- Decidir qué datos van a SQLite y qué eventos van a Arkiv.
 
 ### Entregable
 
 Una frase clara de pitch:
 
-> Ayudamos a clientes y prestadores a construir confianza mediante evidencia de trabajo verificable en Arkiv y analisis de IA sobre fotos del servicio. SQLite se usa solo como base operativa local del prototipo.
+> Ayudamos a clientes y prestadores a construir confianza mediante evidencia de trabajo verificable en Arkiv y análisis de IA sobre fotos del servicio. SQLite se usa solo como base operativa local del prototipo.
 
-### Criterio de aceptacion
+### Criterio de aceptación
 
 Cualquier jurado debe poder entender en menos de un minuto:
 
-- que problema resuelve;
-- por que la IA importa;
-- por que Arkiv es necesario;
-- que dato no puede ser editado silenciosamente;
-- por que SQLite no reemplaza la capa verificable.
+- qué problema resuelve;
+- por qué la IA importa;
+- por qué Arkiv es necesario;
+- qué dato no puede ser editado silenciosamente;
+- por qué SQLite no reemplaza la capa verificable.
 
 ---
 
@@ -757,7 +757,7 @@ uploads/*
 
 Repositorio con backend listo para ejecutar scripts.
 
-### Criterio de aceptacion
+### Criterio de aceptación
 
 El proyecto instala dependencias sin errores, la clave privada no queda versionada y la base SQLite local queda fuera de git.
 
@@ -769,9 +769,9 @@ El proyecto instala dependencias sin errores, la clave privada no queda versiona
 
 Poder crear entidades reales en Arkiv usando Braga.
 
-### Parametros de Braga
+### Parámetros de Braga
 
-| Parametro | Valor |
+| Parámetro | Valor |
 |---|---|
 | Network ID | `60138453102` |
 | HTTP RPC | `https://braga.hoodi.arkiv.network/rpc` |
@@ -792,7 +792,7 @@ Poder crear entidades reales en Arkiv usando Braga.
 
 Wallet lista para escribir entidades en Arkiv.
 
-### Criterio de aceptacion
+### Criterio de aceptación
 
 Se puede ejecutar un script `arkiv-hello.ts` que cree una entidad y devuelva:
 
@@ -801,7 +801,7 @@ Se puede ejecutar un script `arkiv-hello.ts` que cree una entidad y devuelva:
 
 ---
 
-## Etapa 3: Crear prueba minima de Arkiv
+## Etapa 3: Crear prueba mínima de Arkiv
 
 ### Objetivo
 
@@ -827,7 +827,7 @@ El script debe:
 
 Primera entidad creada y legible desde Arkiv.
 
-### Criterio de aceptacion
+### Criterio de aceptación
 
 El equipo puede mostrar el `entityKey` y el `txHash` en la presentacion.
 
@@ -837,7 +837,7 @@ El equipo puede mostrar el `entityKey` y el `txHash` en la presentacion.
 
 ### Objetivo
 
-Tener backend operativo rapido para datos de app sin depender de Directus.
+Tener backend operativo rápido para datos de app sin depender de Directus.
 
 ### Tareas
 
@@ -860,7 +860,7 @@ Tener backend operativo rapido para datos de app sin depender de Directus.
 
 SQLite funcionando con datos precargados.
 
-### Criterio de aceptacion
+### Criterio de aceptación
 
 Desde el backend se pueden listar:
 
@@ -887,13 +887,13 @@ Evitar que el proyecto quede acoplado a SQLite.
   - `SqliteServicesRepository`
   - `SqliteArkivEventsRepository`
 - Crear `src/repositories/directus/README.md` explicando el adapter futuro.
-- Asegurar que los casos de uso reciban repositorios por parametro o factory.
+- Asegurar que los casos de uso reciban repositorios por parámetro o factory.
 
 ### Entregable
 
 Casos de uso desacoplados de la base concreta.
 
-### Criterio de aceptacion
+### Criterio de aceptación
 
 Para migrar a Directus no hay que cambiar el flujo de negocio, solo implementar nuevos repositorios.
 
@@ -924,10 +924,10 @@ Ver solicitud
 -> aceptar trabajo
 -> marcar avance
 -> subir evidencia
--> solicitar aprobacion
+-> solicitar aprobación
 ```
 
-### Flujo de verificacion
+### Flujo de verificación
 
 ```text
 Trabajo creado en SQLite
@@ -949,9 +949,9 @@ Mapa de pantallas y estados.
 
 Entregable creado: [`docs/flujo-principal-usuario-etapa-6.md`](docs/flujo-principal-usuario-etapa-6.md)
 
-### Criterio de aceptacion
+### Criterio de aceptación
 
-El flujo se entiende sin explicar la base de datos ni el codigo.
+El flujo se entiende sin explicar la base de datos ni el código.
 
 ---
 
@@ -961,7 +961,7 @@ El flujo se entiende sin explicar la base de datos ni el codigo.
 
 Tener una experiencia visual completa.
 
-### Pantallas minimas
+### Pantallas mínimas
 
 1. **Home**
    - Explica el valor de evidencia verificable.
@@ -974,7 +974,7 @@ Tener una experiencia visual completa.
    - Rating.
    - Historial de trabajos.
    - Evidencia anterior.
-   - Indicador de reputacion verificable.
+   - Indicador de reputación verificable.
 
 4. **Detalle del trabajo**
    - Estado actual.
@@ -990,7 +990,7 @@ Tener una experiencia visual completa.
 
 6. **Panel admin**
    - Lista de trabajos.
-   - Estado de verificacion.
+   - Estado de verificación.
    - Alertas de IA.
    - Entity keys.
 
@@ -998,7 +998,7 @@ Tener una experiencia visual completa.
 
 Frontend con navegacion completa.
 
-### Criterio de aceptacion
+### Criterio de aceptación
 
 El jurado puede recorrer el caso de uso de punta a punta.
 
@@ -1045,14 +1045,14 @@ Las escrituras deben correr en:
 
 Eventos reales guardados en Arkiv y referenciados en SQLite.
 
-### Criterio de aceptacion
+### Criterio de aceptación
 
 Al crear o actualizar un trabajo, la app muestra:
 
 - `entityKey`;
 - `txHash`;
 - link al explorer;
-- estado de verificacion.
+- estado de verificación.
 
 ---
 
@@ -1064,7 +1064,7 @@ Mostrar que los datos pueden leerse y consultarse como capa verificable.
 
 ### Tareas
 
-- Crear cliente publico de Arkiv.
+- Crear cliente público de Arkiv.
 - Leer una entidad por `entityKey`.
 - Mostrar payload en pantalla.
 - Consultar entidades por atributos.
@@ -1091,7 +1091,7 @@ curl https://braga.hoodi.arkiv.network/rpc \
 
 Vista de historial verificable.
 
-### Criterio de aceptacion
+### Criterio de aceptación
 
 Se puede consultar todo el historial de un trabajo usando atributos de Arkiv, aunque SQLite sea la base operativa local.
 
@@ -1106,7 +1106,7 @@ Usar IA para aportar valor real al flujo de confianza.
 ### Casos de uso recomendados
 
 1. **Resumen automatico**
-   - La IA describe que se ve en la evidencia.
+   - La IA describe qué se ve en la evidencia.
 
 2. **Clasificacion contextual**
    - La IA clasifica si la imagen parece `before`, `progress` o `after`.
@@ -1121,13 +1121,13 @@ Usar IA para aportar valor real al flujo de confianza.
    - No se observa el trabajo descrito.
 
 5. **Resumen final del trabajo**
-   - La IA genera una explicacion breve del historial completo.
+   - La IA genera una explicación breve del historial completo.
 
 ### Resultado esperado de IA
 
 ```json
 {
-  "summary": "La imagen muestra una reparacion terminada en una zona de cocina.",
+  "summary": "La imagen muestra una reparación terminada en una zona de cocina.",
   "classification": "after",
   "matchesServiceType": true,
   "confidence": 0.82,
@@ -1139,15 +1139,15 @@ Usar IA para aportar valor real al flujo de confianza.
 
 1. Guardar resultado operativo en `job_evidence.ai_summary` y `job_evidence.ai_status`.
 2. Publicar resultado verificable en Arkiv como `ai_review_generated`.
-3. Guardar `entityKey` y `txHash` del analisis en SQLite.
+3. Guardar `entityKey` y `txHash` del análisis en SQLite.
 
 ### Entregable
 
-Evidencia con analisis de IA verificable.
+Evidencia con análisis de IA verificable.
 
-### Criterio de aceptacion
+### Criterio de aceptación
 
-La presentacion muestra una foto, el analisis IA y el `entityKey` del analisis guardado en Arkiv.
+La presentacion muestra una foto, el análisis IA y el `entityKey` del análisis guardado en Arkiv.
 
 ---
 
@@ -1164,25 +1164,25 @@ Evitar depender de datos improvisados durante la presentacion.
 - 6 servicios.
 - 4 trabajos de ejemplo.
 - 8 evidencias visuales locales.
-- 4 analisis IA ya generados.
+- 4 análisis IA ya generados.
 - 4 entidades Arkiv creadas previamente.
 
 ### Trabajos sugeridos
 
 | Trabajo | Servicio | Estado | Evidencia | IA |
 |---|---|---|---|---|
-| Perdida bajo cocina | Plomeria | Completado | Antes/despues | Valida |
-| Corte de cesped | Jardineria | Completado | Antes/despues | Valida |
+| Pérdida bajo cocina | Plomería | Completado | Antes/después | Válida |
+| Corte de césped | Jardinería | Completado | Antes/después | Válida |
 | Cambio de toma | Electricidad | En progreso | Progreso | Advertencia |
-| Limpieza profunda | Limpieza | Completado | Despues | Valida |
+| Limpieza profunda | Limpieza | Completado | Después | Válida |
 
 ### Entregable
 
 Datos iniciales listos.
 
-### Criterio de aceptacion
+### Criterio de aceptación
 
-Aunque falle una integracion en vivo, el flujo puede mostrarse con datos prearmados.
+Aunque falle una integración en vivo, el flujo puede mostrarse con datos prearmados.
 
 ---
 
@@ -1190,7 +1190,7 @@ Aunque falle una integracion en vivo, el flujo puede mostrarse con datos prearma
 
 ### Objetivo
 
-Dejar claro como se reemplaza SQLite por Directus cuando este disponible.
+Dejar claro cómo se reemplaza SQLite por Directus cuando esté disponible.
 
 ### Principio
 
@@ -1226,13 +1226,13 @@ const repositories =
 | `arkiv_events` | `arkiv_events` collection |
 | `uploads/` | Directus Media Library |
 
-### Criterio de aceptacion
+### Criterio de aceptación
 
 La migracion a Directus requiere agregar adaptadores y mover datos, no reescribir la app.
 
 ---
 
-## 13. Checklist tecnico para competencia
+## 13. Checklist técnico para competencia
 
 ### Arkiv
 
@@ -1245,7 +1245,7 @@ La migracion a Directus requiere agregar adaptadores y mover datos, no reescribi
 - [ ] Mostrar `txHash` en la UI.
 - [ ] Leer entidad con `PublicClient`.
 - [ ] Consultar entidades con `arkiv_query`.
-- [ ] Explicar por que Arkiv es central al flujo.
+- [ ] Explicar por qué Arkiv es central al flujo.
 
 ### SQLite local
 
@@ -1274,7 +1274,7 @@ La migracion a Directus requiere agregar adaptadores y mover datos, no reescribi
 - [ ] Detectar advertencias basicas.
 - [ ] Guardar resultado de IA en SQLite.
 - [ ] Guardar resultado de IA en Arkiv.
-- [ ] Mostrar analisis IA en pantalla.
+- [ ] Mostrar análisis IA en pantalla.
 
 ### Producto
 
@@ -1282,7 +1282,7 @@ La migracion a Directus requiere agregar adaptadores y mover datos, no reescribi
 - [ ] Flujo cliente completo.
 - [ ] Flujo prestador completo.
 - [ ] Timeline de trabajo.
-- [ ] Evidencia antes/despues.
+- [ ] Evidencia antes/después.
 - [ ] Reputacion del prestador.
 - [ ] Panel admin.
 - [ ] Datos precargados.
@@ -1291,7 +1291,7 @@ La migracion a Directus requiere agregar adaptadores y mover datos, no reescribi
 
 ## 14. Orden recomendado de trabajo para el hackathon
 
-## Bloque 1: Base tecnica
+## Bloque 1: Base técnica
 
 1. Crear repo.
 2. Instalar SDK Arkiv.
@@ -1340,7 +1340,7 @@ La migracion a Directus requiere agregar adaptadores y mover datos, no reescribi
 5. Guardar respuesta en SQLite.
 6. Publicar respuesta en Arkiv.
 
-## Bloque 6: Preparacion para Directus
+## Bloque 6: Preparación para Directus
 
 1. Mantener interfaces limpias.
 2. Documentar mapeo SQLite -> Directus.
@@ -1350,9 +1350,9 @@ La migracion a Directus requiere agregar adaptadores y mover datos, no reescribi
 
 ---
 
-## 15. Definicion de exito del MVP
+## 15. Definición de éxito del MVP
 
-El MVP esta listo cuando se puede demostrar este flujo:
+El MVP está listo cuando se puede demostrar este flujo:
 
 ```text
 Cliente crea trabajo
@@ -1363,13 +1363,13 @@ Cliente crea trabajo
 -> se crea entidad de evidencia en Arkiv
 -> IA analiza la evidencia
 -> se guarda resultado en SQLite
--> se crea entidad de analisis IA en Arkiv
+-> se crea entidad de análisis IA en Arkiv
 -> cliente ve historial verificable
 -> trabajo se completa
 -> se crea entidad final en Arkiv
 ```
 
-El punto mas importante para la competencia es que Arkiv no sea un agregado cosmetico. SQLite puede cambiar despues por Directus, pero Arkiv debe seguir siendo el registro verificable del historial de confianza del servicio.
+El punto más importante para la competencia es que Arkiv no sea un agregado cosmético. SQLite puede cambiar después por Directus, pero Arkiv debe seguir siendo el registro verificable del historial de confianza del servicio.
 
 ---
 
@@ -1377,33 +1377,33 @@ El punto mas importante para la competencia es que Arkiv no sea un agregado cosm
 
 ### Riesgo 1: que SQLite se vuelva arquitectura final por accidente
 
-**Decision:** usar SQLite solo detras de repositorios. Preparar `DirectusRepository` como reemplazo futuro.
+**Decisión:** usar SQLite solo detrás de repositorios. Preparar `DirectusRepository` como reemplazo futuro.
 
 ### Riesgo 2: querer hacer pagos reales
 
-**Decision:** dejar pagos y escrow fuera del MVP.
+**Decisión:** dejar pagos y escrow fuera del MVP.
 
 ### Riesgo 3: hacer login real
 
-**Decision:** usar usuarios precargados.
+**Decisión:** usar usuarios precargados.
 
-### Riesgo 4: guardar demasiada informacion en Arkiv
+### Riesgo 4: guardar demasiada información en Arkiv
 
-**Decision:** guardar solo eventos importantes y evidencia verificable.
+**Decisión:** guardar solo eventos importantes y evidencia verificable.
 
 ### Riesgo 5: que la IA sea superficial
 
-**Decision:** hacer que la IA analice evidencia del trabajo y guarde su resultado verificable.
+**Decisión:** hacer que la IA analice evidencia del trabajo y guarde su resultado verificable.
 
-### Riesgo 6: que SQLite parezca mas importante que Arkiv
+### Riesgo 6: que SQLite parezca más importante que Arkiv
 
-**Decision:** SQLite es operativo y temporal; Arkiv es la capa de prueba y auditoria.
+**Decisión:** SQLite es operativo y temporal; Arkiv es la capa de prueba y auditoría.
 
 ---
 
 ## 17. Proxima tarea inmediata
 
-La primera tarea concreta deberia ser:
+La primera tarea concreta debería ser:
 
 ```bash
 cd backend
@@ -1422,10 +1422,10 @@ src/repositories/sqlite/db.ts
 src/repositories/directus/README.md
 ```
 
-Despues confirmar que:
+Después confirmar que:
 
 1. `arkiv-hello.ts` crea una entidad en Braga.
 2. SQLite puede cargar datos iniciales.
 3. Un caso de uso puede crear un trabajo local y publicar `job_created` en Arkiv.
 
-Si eso funciona, el proyecto ya tiene la base tecnica mas importante para competir y no queda bloqueado por Directus.
+Si eso funciona, el proyecto ya tiene la base técnica más importante para competir y no queda bloqueado por Directus.

@@ -1,50 +1,50 @@
 # Etapa 6: Flujo principal de usuario
 
-Este mapa define la experiencia demostrable del MVP antes de construir el frontend. El objetivo es que cliente, prestador y jurado entiendan el recorrido sin tener que conocer SQLite, Arkiv ni el codigo interno.
+Este mapa define la experiencia demostrable del MVP antes de construir el frontend. El objetivo es que cliente, prestador y jurado entiendan el recorrido sin tener que conocer SQLite, Arkiv ni el código interno.
 
 ## Objetivo de la demo
 
-Mostrar un trabajo de servicio desde la solicitud hasta el cierre, con evidencia local, analisis de IA y eventos verificables publicados en Arkiv.
+Mostrar un trabajo de servicio desde la solicitud hasta el cierre, con evidencia local, análisis de IA y eventos verificables publicados en Arkiv.
 
 Caso principal recomendado para la demo:
 
-- Servicio: Plomeria.
-- Trabajo: Perdida bajo cocina.
-- Cliente: Sofia Ramirez (`client_001`).
-- Prestador: Martin Acosta (`provider_001`).
+- Servicio: Plomería.
+- Trabajo: Pérdida bajo cocina.
+- Cliente: Sofía Ramírez (`client_001`).
+- Prestador: Martín Acosta (`provider_001`).
 - Estado final esperado: `completed`.
 
 ## Roles
 
 | Rol | Necesita ver | Necesita hacer |
 | --- | --- | --- |
-| Cliente | Servicios, prestadores, estado del trabajo, evidencia, resumen IA, historial verificable | Solicitar trabajo, revisar evidencia, aprobar cierre, dejar resena |
-| Prestador | Solicitudes asignadas, estado, pasos pendientes, evidencias cargadas | Aceptar trabajo, marcar avance, subir evidencia, pedir aprobacion |
+| Cliente | Servicios, prestadores, estado del trabajo, evidencia, resumen IA, historial verificable | Solicitar trabajo, revisar evidencia, aprobar cierre, dejar reseña |
+| Prestador | Solicitudes asignadas, estado, pasos pendientes, evidencias cargadas | Aceptar trabajo, marcar avance, subir evidencia, pedir aprobación |
 | Admin/Jurado | Todos los trabajos, estado operativo, eventos Arkiv, entity keys, tx hashes, alertas IA | Auditar el flujo y comparar SQLite vs Arkiv |
 
 ## Estados del trabajo
 
-| Estado | Actor que lo dispara | Que significa para usuario | Evento Arkiv esperado |
+| Estado | Actor que lo dispara | Qué significa para usuario | Evento Arkiv esperado |
 | --- | --- | --- | --- |
-| `requested` | Cliente | El trabajo fue solicitado y espera confirmacion | `job_created` |
+| `requested` | Cliente | El trabajo fue solicitado y espera confirmación | `job_created` |
 | `accepted` | Prestador | El prestador acepto la solicitud | Pendiente para MVP, no obligatorio |
-| `in_progress` | Prestador | El trabajo esta en ejecucion | Pendiente para MVP, no obligatorio |
+| `in_progress` | Prestador | El trabajo está en ejecución | Pendiente para MVP, no obligatorio |
 | `evidence_uploaded` | Prestador | Hay evidencia cargada para revisar | `evidence_uploaded` |
-| `ai_reviewed` | Sistema/IA | La evidencia ya tiene analisis de IA | `ai_review_generated` |
+| `ai_reviewed` | Sistema/IA | La evidencia ya tiene análisis de IA | `ai_review_generated` |
 | `completed` | Cliente | El trabajo fue aprobado y cerrado | `job_completed` |
 
 ## Mapa de pantallas
 
 ### 1. Inicio
 
-Proposito: ubicar rapidamente el producto como marketplace de servicios con evidencia verificable.
+Propósito: ubicar rápidamente el producto como marketplace de servicios con evidencia verificable.
 
 Contenido visible:
 
-- Servicios destacados: Plomeria, Jardineria, Electricidad.
+- Servicios destacados: Plomería, Jardinería, Electricidad.
 - Acceso directo a buscar servicios.
 - Acceso a panel prestador y panel admin para la demo.
-- Indicador de que la reputacion se basa en trabajos con evidencia.
+- Indicador de que la reputación se basa en trabajos con evidencia.
 
 Acciones:
 
@@ -54,13 +54,13 @@ Acciones:
 
 ### 2. Listado de servicios
 
-Proposito: permitir al cliente elegir una categoria de servicio.
+Propósito: permitir al cliente elegir una categoría de servicio.
 
 Contenido visible:
 
 - Cards o filas de servicios desde `ServicesRepository.list()`.
-- Precio base, categoria e icono.
-- Filtros simples por categoria.
+- Precio base, categoría e icono.
+- Filtros simples por categoría.
 
 Acciones:
 
@@ -68,7 +68,7 @@ Acciones:
 
 ### 3. Perfil del prestador
 
-Proposito: ayudar al cliente a decidir con datos de confianza.
+Propósito: ayudar al cliente a decidir con datos de confianza.
 
 Contenido visible:
 
@@ -77,7 +77,7 @@ Contenido visible:
 - Trabajos verificados.
 - Categorias atendidas.
 - Historial resumido de evidencias anteriores.
-- Indicador de reputacion verificable.
+- Indicador de reputación verificable.
 
 Acciones:
 
@@ -85,13 +85,13 @@ Acciones:
 
 ### 4. Crear solicitud de trabajo
 
-Proposito: convertir la decision del cliente en un trabajo operativo.
+Propósito: convertir la decisión del cliente en un trabajo operativo.
 
 Contenido visible:
 
 - Servicio seleccionado.
 - Prestador seleccionado.
-- Titulo, descripcion, zona y fecha.
+- Título, descripción, zona y fecha.
 
 Acciones:
 
@@ -100,35 +100,35 @@ Acciones:
 Resultado esperado:
 
 1. Se crea un registro en `jobs` con estado `requested`.
-2. En etapa 8 se publicara `job_created` en Arkiv.
+2. En etapa 8 se publicará `job_created` en Arkiv.
 3. La pantalla redirige al detalle del trabajo.
 
 ### 5. Detalle del trabajo
 
-Proposito: ser la pantalla central del flujo.
+Propósito: ser la pantalla central del flujo.
 
 Contenido visible:
 
-- Titulo, servicio, cliente, prestador y estado actual.
+- Título, servicio, cliente, prestador y estado actual.
 - Timeline operativo.
 - Evidencias cargadas.
 - Resumen IA cuando exista.
-- Bloque de verificacion con `entityKey`, `txHash` y links de Arkiv cuando existan.
+- Bloque de verificación con `entityKey`, `txHash` y links de Arkiv cuando existan.
 
 Acciones por estado:
 
-| Estado actual | Accion cliente | Accion prestador | Accion sistema |
+| Estado actual | Acción cliente | Acción prestador | Acción sistema |
 | --- | --- | --- | --- |
 | `requested` | Ver solicitud | Aceptar | Ninguna |
 | `accepted` | Ver estado | Marcar en progreso | Ninguna |
 | `in_progress` | Ver estado | Subir evidencia | Ninguna |
-| `evidence_uploaded` | Revisar evidencia | Esperar revision | Analizar con IA |
-| `ai_reviewed` | Aprobar cierre o pedir correccion | Esperar aprobacion | Mostrar resumen IA |
-| `completed` | Dejar resena/ver historial | Ver cierre | Mostrar historial verificable |
+| `evidence_uploaded` | Revisar evidencia | Esperar revisión | Analizar con IA |
+| `ai_reviewed` | Aprobar cierre o pedir correccion | Esperar aprobación | Mostrar resumen IA |
+| `completed` | Dejar reseña/ver historial | Ver cierre | Mostrar historial verificable |
 
 ### 6. Panel prestador
 
-Proposito: que el prestador avance el trabajo sin entrar en herramientas tecnicas.
+Propósito: que el prestador avance el trabajo sin entrar en herramientas técnicas.
 
 Contenido visible:
 
@@ -142,18 +142,18 @@ Acciones:
 - Aceptar trabajo.
 - Marcar en progreso.
 - Subir evidencia.
-- Solicitar aprobacion.
+- Solicitar aprobación.
 
 ### 7. Subir evidencia
 
-Proposito: capturar la prueba visual o documental del trabajo.
+Propósito: capturar la prueba visual o documental del trabajo.
 
 Contenido visible:
 
 - Trabajo asociado.
 - Tipo de evidencia: `before`, `progress`, `after`, `receipt`, `issue`.
 - Archivo local.
-- Descripcion opcional.
+- Descripción opcional.
 
 Acciones:
 
@@ -165,11 +165,11 @@ Resultado esperado:
 2. Metadata guardada en `job_evidence`.
 3. Hash SHA-256 calculado.
 4. Trabajo pasa a `evidence_uploaded`.
-5. En etapa 8 se publicara `evidence_uploaded` en Arkiv.
+5. En etapa 8 se publicará `evidence_uploaded` en Arkiv.
 
-### 8. Revision IA
+### 8. Revisión IA
 
-Proposito: convertir evidencia visual en una explicacion util y auditable.
+Propósito: convertir evidencia visual en una explicación útil y auditable.
 
 Contenido visible:
 
@@ -181,18 +181,18 @@ Contenido visible:
 
 Acciones:
 
-- Guardar revision IA.
+- Guardar revisión IA.
 
 Resultado esperado:
 
 1. `job_evidence.ai_summary` se actualiza.
 2. `job_evidence.ai_status` se actualiza.
 3. Trabajo pasa a `ai_reviewed`.
-4. En etapa 8 se publicara `ai_review_generated` en Arkiv.
+4. En etapa 8 se publicará `ai_review_generated` en Arkiv.
 
-### 9. Cierre y resena
+### 9. Cierre y reseña
 
-Proposito: cerrar el trabajo con aprobacion del cliente.
+Propósito: cerrar el trabajo con aprobación del cliente.
 
 Contenido visible:
 
@@ -210,11 +210,11 @@ Resultado esperado:
 
 1. Trabajo pasa a `completed`.
 2. Se crea registro en `reviews`.
-3. En etapa 8 se publicara `job_completed` en Arkiv.
+3. En etapa 8 se publicará `job_completed` en Arkiv.
 
 ### 10. Panel admin / jurado
 
-Proposito: demostrar que Arkiv es parte central del flujo y no un agregado cosmetico.
+Propósito: demostrar que Arkiv es parte central del flujo y no un agregado cosmético.
 
 Contenido visible:
 
@@ -239,10 +239,10 @@ El detalle del trabajo debe mostrar dos capas en una sola linea temporal:
 | --- | --- | --- |
 | Solicitud creada | `jobs` | `job_created` |
 | Evidencia subida | `job_evidence` + `uploads/` | `evidence_uploaded` |
-| Revision IA generada | `job_evidence.ai_summary` + `ai_status` | `ai_review_generated` |
+| Revisión IA generada | `job_evidence.ai_summary` + `ai_status` | `ai_review_generated` |
 | Trabajo completado | `jobs.status` + `reviews` | `job_completed` |
 
-Regla para la UI: si un evento todavia no tiene `entityKey`, mostrarlo como pendiente de publicacion, no como verificado.
+Regla para la UI: si un evento todavía no tiene `entityKey`, mostrarlo como pendiente de publicación, no como verificado.
 
 ## Contratos de datos necesarios para etapa 7
 
@@ -270,19 +270,19 @@ La etapa 7 puede construirse contra estos metodos existentes:
 
 ## Guion de demo recomendado
 
-1. Cliente entra a servicios y elige Plomeria.
-2. Cliente abre el perfil de Martin Acosta y revisa reputacion verificable.
-3. Cliente solicita "Perdida bajo cocina".
+1. Cliente entra a servicios y elige Plomería.
+2. Cliente abre el perfil de Martín Acosta y revisa reputación verificable.
+3. Cliente solicita "Pérdida bajo cocina".
 4. Prestador acepta, marca avance y sube evidencia `before`/`after`.
-5. Sistema calcula hash y muestra evidencia pendiente de verificacion.
+5. Sistema calcula hash y muestra evidencia pendiente de verificación.
 6. IA resume la evidencia y marca estado `valid`.
-7. Cliente aprueba el cierre y deja resena.
+7. Cliente aprueba el cierre y deja reseña.
 8. Admin abre el historial y muestra eventos Arkiv con `entityKey` y `txHash`.
 
-## Criterios de aceptacion de la etapa 6
+## Criterios de aceptación de la etapa 6
 
 - El flujo se puede explicar mirando solo las pantallas y estados.
-- Cada pantalla tiene rol, proposito, contenido y accion principal.
+- Cada pantalla tiene rol, propósito, contenido y acción principal.
 - El cambio de estados coincide con `JobStatus` en `ports.ts`.
 - La evidencia diferencia claramente archivo local, metadata local y evento verificable.
 - Arkiv aparece en el timeline principal desde la solicitud, evidencia, IA y cierre.

@@ -1,12 +1,12 @@
-# Colecciones Directus para completar el flujo de la aplicacion
+# Colecciones Directus para completar el flujo de la aplicación
 
-Este documento baja a tierra que colecciones hay que crear en Directus para cubrir el flujo completo del MVP: cliente solicita un trabajo, prestador acepta y sube evidencia, IA revisa, Arkiv publica eventos verificables, cliente cierra y deja resena.
+Este documento baja a tierra que colecciones hay que crear en Directus para cubrir el flujo completo del MVP: cliente solicita un trabajo, prestador acepta y sube evidencia, IA revisa, Arkiv publica eventos verificables, cliente cierra y deja reseña.
 
 Directus debe ser la base operativa editable. Arkiv debe seguir siendo la capa verificable: `entityKey`, `txHash`, payload y atributos publicados.
 
-## Decision de nombres
+## Decisión de nombres
 
-Usar los mismos modelos que el SQLite actual, pero con sufijo `_ml` en Directus para distinguir estas colecciones de otras colecciones del proyecto o de una instancia compartida. El adapter `Directus*Repository` debe mapear estos nombres fisicos contra los tipos de dominio existentes sin cambiar los casos de uso:
+Usar los mismos modelos que el SQLite actual, pero con sufijo `_ml` en Directus para distinguir estas colecciones de otras colecciones del proyecto o de una instancia compartida. El adapter `Directus*Repository` debe mapear estos nombres físicos contra los tipos de dominio existentes sin cambiar los casos de uso:
 
 - `users_ml`
 - `services_ml`
@@ -16,34 +16,34 @@ Usar los mismos modelos que el SQLite actual, pero con sufijo `_ml` en Directus 
 - `reviews_ml`
 - `arkiv_events_ml`
 
-Nota: `users_ml` es una coleccion demo de la app, no reemplaza `directus_users`.
+Nota: `users_ml` es una colección demo de la app, no reemplaza `directus_users`.
 
 ## Resumen del modelo
 
 | Coleccion | Para que existe | Obligatoria para MVP |
 | --- | --- | --- |
-| `users_ml` | Clientes, prestadores y admin demo | Si |
-| `services_ml` | Catalogo de servicios ofrecidos | Si |
-| `provider_profiles_ml` | Perfil publico del prestador | Si |
-| `jobs_ml` | Solicitud, estado y cierre del trabajo | Si |
-| `job_evidence_ml` | Archivos, hash, metadata e IA de evidencia | Si |
-| `reviews_ml` | Calificacion final del trabajo | Si |
-| `arkiv_events_ml` | Bitacora local de publicaciones en Arkiv | Si |
+| `users_ml` | Clientes, prestadores y admin demo | Sí |
+| `services_ml` | Catálogo de servicios ofrecidos | Sí |
+| `provider_profiles_ml` | Perfil público del prestador | Sí |
+| `jobs_ml` | Solicitud, estado y cierre del trabajo | Sí |
+| `job_evidence_ml` | Archivos, hash, metadata e IA de evidencia | Sí |
+| `reviews_ml` | Calificacion final del trabajo | Sí |
+| `arkiv_events_ml` | Bitácora local de publicaciones en Arkiv | Sí |
 
 ## 1. `users_ml`
 
-Usuarios demo de la aplicacion. No usar esta coleccion para login productivo todavia.
+Usuarios demo de la aplicación. No usar está colección para login productivo todavía.
 
 Campos:
 
 | Campo | Tipo Directus | Requerido | Notas |
 | --- | --- | --- | --- |
-| `id` | string | Si | Manual. Ej: `client_001`, `provider_001`, `admin_001`. |
-| `name` | string | Si | Nombre visible. |
-| `role` | string select | Si | Valores: `client`, `provider`, `admin`. |
+| `id` | string | Sí | Manual. Ej: `client_001`, `provider_001`, `admin_001`. |
+| `name` | string | Sí | Nombre visible. |
+| `role` | string select | Sí | Valores: `client`, `provider`, `admin`. |
 | `avatar_url` | string | No | URL externa o asset si se decide usar media. |
 | `city` | string | No | Ciudad o zona. |
-| `rating` | decimal | Si | Default `0`. Rating operativo visible. |
+| `rating` | decimal | Sí | Default `0`. Rating operativo visible. |
 
 Relaciones:
 
@@ -55,15 +55,15 @@ Relaciones:
 
 ## 2. `services_ml`
 
-Catalogo de servicios que el cliente puede contratar.
+Catálogo de servicios que el cliente puede contratar.
 
 Campos:
 
 | Campo | Tipo Directus | Requerido | Notas |
 | --- | --- | --- | --- |
-| `id` | string | Si | Manual. Ej: `service_plumbing`. |
-| `name` | string | Si | Ej: `Plomeria`. |
-| `category` | string | Si | Ej: `hogar`, `mantenimiento`, `limpieza`. |
+| `id` | string | Sí | Manual. Ej: `service_plumbing`. |
+| `name` | string | Sí | Ej: `Plomería`. |
+| `category` | string | Sí | Ej: `hogar`, `mantenimiento`, `limpieza`. |
 | `description` | text | No | Texto corto para listado. |
 | `base_price` | integer | No | Precio base estimado. |
 | `icon` | string | No | Nombre de icono usado por frontend. |
@@ -74,8 +74,8 @@ Relaciones:
 
 Datos minimos recomendados:
 
-- Plomeria
-- Jardineria
+- Plomería
+- Jardinería
 - Electricidad
 - Limpieza
 - Reparaciones
@@ -83,19 +83,19 @@ Datos minimos recomendados:
 
 ## 3. `provider_profiles_ml`
 
-Perfil publico de cada prestador.
+Perfil público de cada prestador.
 
 Campos:
 
 | Campo | Tipo Directus | Requerido | Notas |
 | --- | --- | --- | --- |
-| `id` | string | Si | Manual. Ej: `profile_provider_001`. |
-| `user_id` | many-to-one -> `users_ml.id` | Si | Debe apuntar a un usuario con `role = provider`. |
+| `id` | string | Sí | Manual. Ej: `profile_provider_001`. |
+| `user_id` | many-to-one -> `users_ml.id` | Sí | Debe apuntar a un usuario con `role = provider`. |
 | `bio` | text | No | Presentacion breve. |
-| `service_categories` | json | Si | Array de strings. Ej: `["plomeria", "reparaciones"]`. |
-| `experience_years` | integer | Si | Default `0`. |
-| `verified_jobs_count` | integer | Si | Default `0`. Se puede recalcular luego. |
-| `rating_average` | decimal | Si | Default `0`. Se puede recalcular luego. |
+| `service_categories` | json | Sí | Array de strings. Ej: `["plomería", "reparaciones"]`. |
+| `experience_years` | integer | Sí | Default `0`. |
+| `verified_jobs_count` | integer | Sí | Default `0`. Se puede recalcular luego. |
+| `rating_average` | decimal | Sí | Default `0`. Se puede recalcular luego. |
 
 Relacion:
 
@@ -103,27 +103,27 @@ Relacion:
 
 Regla de demo:
 
-- El frontend puede listar prestadores filtrando `service_categories` por la categoria del servicio elegido.
+- El frontend puede listar prestadores filtrando `service_categories` por la categoría del servicio elegido.
 
 ## 4. `jobs_ml`
 
-Registro principal del trabajo. Esta coleccion gobierna el estado operativo del flujo.
+Registro principal del trabajo. Esta colección gobierna el estado operativo del flujo.
 
 Campos:
 
 | Campo | Tipo Directus | Requerido | Notas |
 | --- | --- | --- | --- |
-| `id` | string | Si | Manual o generado por backend. Ej: `job_001`. |
-| `client_id` | many-to-one -> `users_ml.id` | Si | Usuario cliente. |
+| `id` | string | Sí | Manual o generado por backend. Ej: `job_001`. |
+| `client_id` | many-to-one -> `users_ml.id` | Sí | Usuario cliente. |
 | `provider_id` | many-to-one -> `users_ml.id` | No | Prestador asignado. |
-| `service_id` | many-to-one -> `services_ml.id` | Si | Servicio contratado. |
-| `title` | string | Si | Ej: `Perdida bajo cocina`. |
-| `description` | text | Si | Descripcion del problema o trabajo. |
-| `status` | string select | Si | Ver estados permitidos abajo. |
-| `address_area` | string | No | Zona aproximada, no direccion sensible. |
+| `service_id` | many-to-one -> `services_ml.id` | Sí | Servicio contratado. |
+| `title` | string | Sí | Ej: `Pérdida bajo cocina`. |
+| `description` | text | Sí | Descripción del problema o trabajo. |
+| `status` | string select | Sí | Ver estados permitidos abajo. |
+| `address_area` | string | No | Zona aproximada, no dirección sensible. |
 | `scheduled_date` | datetime | No | Fecha pactada. |
-| `created_at` | datetime | Si | Usar fecha de creacion. |
-| `updated_at` | datetime | Si | Actualizar en cada cambio. |
+| `created_at` | datetime | Sí | Usar fecha de creacion. |
+| `updated_at` | datetime | Sí | Actualizar en cada cambio. |
 | `arkiv_entity_key_created` | string | No | Entity key de `job_created`. |
 | `arkiv_tx_hash_created` | string | No | Tx hash de `job_created`. |
 
@@ -138,13 +138,13 @@ Valores de `status`:
 
 Transiciones esperadas:
 
-| Accion | Estado nuevo | Evento Arkiv |
+| Acción | Estado nuevo | Evento Arkiv |
 | --- | --- | --- |
 | Cliente crea solicitud | `requested` | `job_created` |
 | Prestador acepta | `accepted` | Opcional para MVP |
 | Prestador marca avance | `in_progress` | Opcional para MVP |
 | Prestador sube evidencia | `evidence_uploaded` | `evidence_uploaded` |
-| Sistema guarda revision IA | `ai_reviewed` | `ai_review_generated` |
+| Sistema guarda revisión IA | `ai_reviewed` | `ai_review_generated` |
 | Cliente aprueba cierre | `completed` | `job_completed` |
 
 ## 5. `job_evidence_ml`
@@ -155,48 +155,48 @@ Campos:
 
 | Campo | Tipo Directus | Requerido | Notas |
 | --- | --- | --- | --- |
-| `id` | string | Si | Manual o generado por backend. Ej: `evidence_001`. |
-| `job_id` | many-to-one -> `jobs_ml.id` | Si | Trabajo asociado. |
-| `uploaded_by` | many-to-one -> `users_ml.id` | Si | Normalmente prestador. |
-| `type` | string select | Si | Valores: `before`, `progress`, `after`, `receipt`, `issue`. |
-| `file` | file -> `directus_files.id` | Si | Archivo subido a Directus Media Library. |
+| `id` | string | Sí | Manual o generado por backend. Ej: `evidence_001`. |
+| `job_id` | many-to-one -> `jobs_ml.id` | Sí | Trabajo asociado. |
+| `uploaded_by` | many-to-one -> `users_ml.id` | Sí | Normalmente prestador. |
+| `type` | string select | Sí | Valores: `before`, `progress`, `after`, `receipt`, `issue`. |
+| `file` | file -> `directus_files.id` | Sí | Archivo subido a Directus Media Library. |
 | `local_file_path` | string | No | Solo para compatibilidad con SQLite/local. |
-| `public_file_url` | string | No | URL publica o generada desde Directus. |
-| `description` | text | No | Descripcion escrita por el prestador. |
-| `sha256_hash` | string | Si | Hash del archivo para verificar que no cambio. |
+| `public_file_url` | string | No | URL pública o generada desde Directus. |
+| `description` | text | No | Descripción escrita por el prestador. |
+| `sha256_hash` | string | Sí | Hash del archivo para verificar que no cambió. |
 | `ai_summary` | text | No | Resumen generado por IA. |
-| `ai_status` | string select | Si | Valores: `pending`, `valid`, `warning`, `rejected`. Default `pending`. |
+| `ai_status` | string select | Sí | Valores: `pending`, `valid`, `warning`, `rejected`. Default `pending`. |
 | `ai_classification` | string | No | Ej: `before`, `progress`, `after`, `work_completed`. |
 | `ai_confidence` | decimal | No | Ej: `0.82`. |
 | `ai_warnings` | json | No | Array de advertencias. Ej: `["imagen_borrosa"]`. |
 | `arkiv_entity_key` | string | No | Entity key de `evidence_uploaded`. |
 | `arkiv_tx_hash` | string | No | Tx hash de `evidence_uploaded`. |
-| `created_at` | datetime | Si | Fecha de carga. |
+| `created_at` | datetime | Sí | Fecha de carga. |
 
-Notas de implementacion:
+Notas de implementación:
 
 - `file` es el campo Directus correcto para reemplazar `uploads/`.
 - `sha256_hash` debe calcularse antes o durante la subida.
 - Para el MVP actual, el adapter puede poblar `publicFileUrl` usando la URL de asset de Directus.
-- Los campos `ai_classification`, `ai_confidence` y `ai_warnings` no existen en SQLite inicial, pero completan el flujo de IA definido en el plan. Si se quiere mantener paridad estricta, pueden omitirse y guardar todo en `ai_summary`.
+- Los campos `ai_classification`, `ai_confidence` y `ai_warnings` no existen en SQLite inicial, pero completan el flujo de IA definido en el plan. Sí se quiere mantener paridad estricta, pueden omitirse y guardar todo en `ai_summary`.
 
 ## 6. `reviews_ml`
 
-Resena final del cliente una vez completado el trabajo.
+Reseña final del cliente una vez completado el trabajo.
 
 Campos:
 
 | Campo | Tipo Directus | Requerido | Notas |
 | --- | --- | --- | --- |
-| `id` | string | Si | Manual o generado por backend. Ej: `review_001`. |
-| `job_id` | many-to-one -> `jobs_ml.id` | Si | Trabajo cerrado. |
-| `client_id` | many-to-one -> `users_ml.id` | Si | Cliente que evalua. |
-| `provider_id` | many-to-one -> `users_ml.id` | Si | Prestador evaluado. |
-| `rating` | integer | Si | Rango `1` a `5`. |
+| `id` | string | Sí | Manual o generado por backend. Ej: `review_001`. |
+| `job_id` | many-to-one -> `jobs_ml.id` | Sí | Trabajo cerrado. |
+| `client_id` | many-to-one -> `users_ml.id` | Sí | Cliente que evalúa. |
+| `provider_id` | many-to-one -> `users_ml.id` | Sí | Prestador evaluado. |
+| `rating` | integer | Sí | Rango `1` a `5`. |
 | `comment` | text | No | Comentario visible. |
-| `arkiv_entity_key` | string | No | Si se decide publicar resena o cierre en Arkiv. |
+| `arkiv_entity_key` | string | No | Si se decide publicar reseña o cierre en Arkiv. |
 | `arkiv_tx_hash` | string | No | Tx hash asociado. |
-| `created_at` | datetime | Si | Fecha de resena. |
+| `created_at` | datetime | Sí | Fecha de reseña. |
 
 Regla de flujo:
 
@@ -205,21 +205,21 @@ Regla de flujo:
 
 ## 7. `arkiv_events_ml`
 
-Bitacora operativa de todo lo publicado en Arkiv. Es clave para el panel admin/jurado.
+Bitácora operativa de todo lo publicado en Arkiv. Es clave para el panel admin/jurado.
 
 Campos:
 
 | Campo | Tipo Directus | Requerido | Notas |
 | --- | --- | --- | --- |
-| `id` | string | Si | Manual o generado por backend. Ej: `arkiv_001`. |
-| `local_subject_type` | string | Si | Ej: `job`, `evidence`, `review`. Es tipo semantico, no nombre de coleccion. |
-| `local_subject_id` | string | Si | ID local relacionado. |
-| `event_type` | string select | Si | Ver eventos permitidos abajo. |
-| `entity_key` | string | Si | Entity key devuelta por Arkiv. |
-| `tx_hash` | string | Si | Tx hash devuelto por Arkiv. |
-| `payload_json` | json | Si | Payload publicado. |
-| `attributes_json` | json | Si | Attributes publicados. |
-| `created_at` | datetime | Si | Fecha local de registro. |
+| `id` | string | Sí | Manual o generado por backend. Ej: `arkiv_001`. |
+| `local_subject_type` | string | Sí | Ej: `job`, `evidence`, `review`. Es tipo semantico, no nombre de colección. |
+| `local_subject_id` | string | Sí | ID local relacionado. |
+| `event_type` | string select | Sí | Ver eventos permitidos abajo. |
+| `entity_key` | string | Sí | Entity key devuelta por Arkiv. |
+| `tx_hash` | string | Sí | Tx hash devuelto por Arkiv. |
+| `payload_json` | json | Sí | Payload publicado. |
+| `attributes_json` | json | Sí | Attributes publicados. |
+| `created_at` | datetime | Sí | Fecha local de registro. |
 
 Valores de `event_type`:
 
@@ -230,7 +230,7 @@ Valores de `event_type`:
 
 Regla importante:
 
-- Esta coleccion no reemplaza a Arkiv. Solo guarda referencias locales para reconstruir timeline, depurar fallos y mostrar links rapidamente.
+- Esta colección no reemplaza a Arkiv. Solo guarda referencias locales para reconstruir timeline, depurar fallos y mostrar links rápidamente.
 
 ## Relaciones a crear en Directus
 
@@ -328,15 +328,15 @@ Para que el flujo completo se pueda mostrar:
 | `ArkivEventsRepository.list()` | `arkiv_events_ml` |
 | `ArkivEventsRepository.listBySubject(type, id)` | `arkiv_events_ml` |
 
-## Checklist de aceptacion
+## Checklist de aceptación
 
 - Se pueden listar servicios desde Directus.
-- Se pueden listar prestadores con su usuario y categorias.
+- Se pueden listar prestadores con su usuario y categorías.
 - Se puede crear un `job` en estado `requested`.
 - Se puede guardar `arkiv_entity_key_created` y `arkiv_tx_hash_created` en `jobs_ml`.
 - Se puede subir una evidencia a Directus Files y crear `job_evidence_ml`.
 - Se puede guardar hash SHA-256 de la evidencia.
-- Se puede guardar revision IA en `job_evidence_ml`.
+- Se puede guardar revisión IA en `job_evidence_ml`.
 - Se puede cerrar el trabajo y crear `reviews_ml`.
-- Se puede registrar cada publicacion Arkiv en `arkiv_events_ml`.
+- Se puede registrar cada publicación Arkiv en `arkiv_events_ml`.
 - El panel admin puede reconstruir el timeline local + Arkiv por `job_id`.

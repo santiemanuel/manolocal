@@ -42,7 +42,7 @@ if (/^0x[0-9a-fA-F]{40}$/.test(walletSecret)) {
   console.log("Balance GLM:", formatGlm(balance));
 
   throw new Error(
-    "PRIVATE_KEY contiene una direccion publica. Para crear entidades en Arkiv debe contener la clave privada de prueba: 0x + 64 caracteres hexadecimales.",
+    "PRIVATE_KEY contiene una dirección pública. Para crear entidades en Arkiv debe contener la clave privada de prueba: 0x + 64 caracteres hexadecimales.",
   );
 }
 
@@ -51,7 +51,7 @@ if (!/^0x[0-9a-fA-F]{64}$/.test(walletSecret)) {
 }
 
 if (configuredWalletAddress && !/^0x[0-9a-fA-F]{40}$/.test(configuredWalletAddress)) {
-  throw new Error("WALLET_ADDRESS debe ser una direccion Ethereum 0x de 40 caracteres");
+  throw new Error("WALLET_ADDRESS debe ser una dirección Ethereum 0x de 40 caracteres");
 }
 
 const account = privateKeyToAccount(walletSecret as `0x${string}`);

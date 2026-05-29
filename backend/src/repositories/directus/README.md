@@ -23,7 +23,7 @@ importar `better-sqlite3`, SQL ni SDKs de Directus.
 | `ServicesRepository` | `services`, `provider_profiles`, `users` | colecciones equivalentes |
 | `ArkivEventsRepository` | `arkiv_events` | `arkiv_events` collection |
 
-Para activar Directus mas adelante, la factory puede cambiar a:
+Para activar Directus más adelante, la factory puede cambiar a:
 
 ```ts
 const repositories =

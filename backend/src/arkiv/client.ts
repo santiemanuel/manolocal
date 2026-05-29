@@ -16,7 +16,7 @@ export function createArkivWalletClient() {
 
   if (/^0x[0-9a-fA-F]{40}$/.test(walletSecret)) {
     throw new Error(
-      "PRIVATE_KEY contiene una direccion publica. Para escribir en Arkiv debe ser una clave privada 0x de 64 caracteres.",
+      "PRIVATE_KEY contiene una dirección pública. Para escribir en Arkiv debe ser una clave privada 0x de 64 caracteres.",
     );
   }
 

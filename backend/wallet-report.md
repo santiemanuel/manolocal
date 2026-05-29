@@ -1,12 +1,12 @@
 # Wallet Report - Arkiv Braga
 
-Fecha de verificacion: 2026-05-28  
-Proyecto: Servicios Verificables  
+Fecha de verificación: 2026-05-28
+Proyecto: Servicios Verificables
 Red objetivo: Braga
 
 ## Resultado
 
-La prueba de wallet, red Braga y escritura real en Arkiv finalizo correctamente.
+La prueba de wallet, red Braga y escritura real en Arkiv finalizó correctamente.
 
 El script `backend/scripts/arkiv-hello.ts` pudo:
 
@@ -73,15 +73,15 @@ Transaction hash:
 - La wallet firmante tiene GLM disponible para gas.
 - El SDK instalado es `@arkiv-network/sdk` `0.6.8`, compatible con Braga.
 - La entidad fue creada con payload JSON y atributos consultables.
-- La entidad fue leida exitosamente despues de crearla.
+- La entidad fue leída exitosamente después de crearla.
 
 ## Estado de Etapa 2
 
 Estado: completada.
 
-El criterio de aceptacion queda cumplido porque el script creo una entidad real en Arkiv y devolvio:
+El criterio de aceptación queda cumplido porque el script creó una entidad real en Arkiv y devolvió:
 
 - `entityKey`
 - `txHash`
 
-La base tecnica ya esta lista para continuar con la prueba minima de Arkiv y luego integrar los eventos reales del MVP.
+La base técnica ya está lista para continuar con la prueba mínima de Arkiv y luego integrar los eventos reales del MVP.

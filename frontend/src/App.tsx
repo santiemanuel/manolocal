@@ -78,7 +78,7 @@ type Route =
 const statusLabels: Record<JobStatus, string> = {
   requested: "Solicitado",
   accepted: "Aceptado",
-  in_progress: "En ejecucion",
+  in_progress: "En ejecución",
   evidence_uploaded: "Evidencia subida",
   ai_reviewed: "IA revisada",
   completed: "Completado",
@@ -183,12 +183,18 @@ function serviceSlug(service: Service) {
 const arkivEntityExplorerUrl = "https://data.arkiv.network";
 const arkivBlockExplorerUrl = "https://explorer.braga.hoodi.arkiv.network";
 
-function isArkivEntityKey(value: string | null | undefined): value is string {
+type ArkivReferenceKind = "entity" | "tx";
+
+function isArkivHash(value: string | null | undefined): value is string {
   return /^0x[0-9a-fA-F]{64}$/.test(value ?? "");
 }
 
+function isArkivEntityKey(value: string | null | undefined): value is string {
+  return isArkivHash(value);
+}
+
 function isArkivTxHash(value: string | null | undefined): value is string {
-  return /^0x[0-9a-fA-F]{64}$/.test(value ?? "");
+  return isArkivHash(value);
 }
 
 function arkivEntityUrl(entityKey: string) {
@@ -204,14 +210,23 @@ function compactArkivId(value: string) {
   return value.length > 18 ? `${value.slice(0, 8)}...${value.slice(-6)}` : value;
 }
 
-function arkivReferenceUrl(value: string | null | undefined) {
-  if (isArkivEntityKey(value)) return arkivEntityUrl(value);
-  if (isArkivTxHash(value)) return arkivTxUrl(value);
+function arkivReferenceUrl(value: string | null | undefined, kind: ArkivReferenceKind) {
+  if (!isArkivHash(value)) return null;
+  if (kind === "entity") return arkivEntityUrl(value);
+  if (kind === "tx") return arkivTxUrl(value);
   return null;
 }
 
-function ArkivReference({ value, fallback = "pendiente" }: { value: string | null | undefined; fallback?: string }) {
-  const href = arkivReferenceUrl(value);
+function ArkivReference({
+  value,
+  kind = "entity",
+  fallback = "pendiente",
+}: {
+  value: string | null | undefined;
+  kind?: ArkivReferenceKind;
+  fallback?: string;
+}) {
+  const href = arkivReferenceUrl(value, kind);
   const referenceValue = value ?? "";
 
   if (!href) {
@@ -252,7 +267,7 @@ function App() {
   useEffect(() => {
     fetchState()
       .then(applyRemoteState)
-      .catch(() => setSyncMessage("API local sin conexion; la pagina sigue en modo demo."));
+      .catch(() => setSyncMessage("API local sin conexión; la página sigue en modo demo."));
   }, []);
 
   const context = useMemo(
@@ -364,7 +379,7 @@ function NavLink({
 function Announcement() {
   return (
     <div className="announcement">
-      <span>Evidencia local, analisis IA y eventos verificables en Arkiv Braga.</span>
+      <span>Evidencia local, análisis IA y eventos verificables en Arkiv Braga.</span>
       <a href="/admin" onClick={linkTo("/admin")}>
         Auditar demo
       </a>
@@ -380,7 +395,7 @@ function HomePage({ jobs, evidence }: { jobs: Job[]; evidence: JobEvidence[] }) 
     <main>
       <section className="hero">
         <div className="hero-copy">
-          <span className="eyebrow">Marketplace local con reputacion verificable</span>
+          <span className="eyebrow">Marketplace local con reputación verificable</span>
           <h1>Servicios con evidencia que se puede auditar.</h1>
           <p>
             Clientes y prestadores siguen el trabajo desde la solicitud hasta el cierre, con fotos, resumen IA y eventos
@@ -397,20 +412,20 @@ function HomePage({ jobs, evidence }: { jobs: Job[]; evidence: JobEvidence[] }) 
           </div>
         </div>
         <div className="hero-media">
-          <img src={heroEvidence} alt="Tecnico documentando una reparacion para evidencia verificable" />
+          <img src={heroEvidence} alt="Técnico documentando una reparación para evidencia verificable" />
           <div className="console-panel">
             <div className="console-topline">
               <span>job_001</span>
               <span className="status-dot verified">verificado</span>
             </div>
-            <div className="console-title">Perdida bajo cocina</div>
+            <div className="console-title">Pérdida bajo cocina</div>
             <div className="console-row">
               <ShieldCheck size={16} />
               <span>2 evidencias con hash SHA-256</span>
             </div>
             <div className="console-row">
               <Bot size={16} />
-              <span>IA: reparacion finalizada sin perdida visible</span>
+              <span>IA: reparación finalizada sin pérdida visible</span>
             </div>
           </div>
         </div>
@@ -429,7 +444,7 @@ function HomePage({ jobs, evidence }: { jobs: Job[]; evidence: JobEvidence[] }) 
           <h2>Un recorrido claro para cliente, prestador y jurado.</h2>
         </div>
         <div className="feature-grid">
-          <Feature icon={<Search />} title="Cliente" text="Elige servicio, revisa reputacion y abre una solicitud con estado visible." />
+          <Feature icon={<Search />} title="Cliente" text="Elige servicio, revisa reputación y abre una solicitud con estado visible." />
           <Feature icon={<Upload />} title="Prestador" text="Acepta el trabajo, marca avance y sube evidencia local con hash." />
           <Feature icon={<Database />} title="Admin" text="Audita SQLite contra Arkiv: entity keys, tx hashes, IA y alertas." />
         </div>
@@ -438,9 +453,9 @@ function HomePage({ jobs, evidence }: { jobs: Job[]; evidence: JobEvidence[] }) 
       <section className="dark-band">
         <div>
           <span className="eyebrow inverted">Caso recomendado</span>
-          <h2>Plomeria: perdida bajo cocina.</h2>
+          <h2>Plomería: pérdida bajo cocina.</h2>
           <p>
-            Sofia Ramirez contrata a Martin Acosta. El trabajo avanza por estados operativos y cada hito importante se
+            Sofía Ramírez contrata a Martín Acosta. El trabajo avanza por estados operativos y cada hito importante se
             muestra como pendiente o verificable.
           </p>
         </div>
@@ -481,7 +496,7 @@ function ServicesPage({ services }: { services: Service[] }) {
     <main className="page">
       <PageTitle
         eyebrow="Servicios"
-        title="Elegir una categoria para iniciar el trabajo verificable."
+        title="Elegir una categoría para iniciar el trabajo verificable."
         text="Los datos usan los mismos ids y campos sembrados en Directus."
       />
       <div className="chip-row">
@@ -561,7 +576,7 @@ function ProviderRow({ profile, service }: { profile: ProviderProfile; service: 
             {profile.ratingAverage}
           </span>
           <span>{profile.verifiedJobsCount} trabajos verificados</span>
-          <span>{profile.experienceYears} anos</span>
+          <span>{profile.experienceYears} años</span>
         </div>
       </div>
       <div className="row-actions">
@@ -690,8 +705,8 @@ function NewJobPage({
     <main className="page narrow">
       <PageTitle
         eyebrow="Nueva solicitud"
-        title="Convertir la decision en un trabajo operativo."
-        text="El primer estado sera requested; la publicacion job_created queda lista para etapa 8."
+        title="Convertir la decisión en un trabajo operativo."
+        text="El primer estado será requested; la publicación job_created queda lista para etapa 8."
       />
       <form className="form-card" onSubmit={onSubmit}>
         <div className="form-grid">
@@ -716,8 +731,8 @@ function NewJobPage({
             </select>
           </label>
           <label>
-            Titulo
-            <input name="title" defaultValue="Perdida bajo cocina" required />
+            Título
+            <input name="title" defaultValue="Pérdida bajo cocina" required />
           </label>
           <label>
             Zona
@@ -728,10 +743,10 @@ function NewJobPage({
             <input name="scheduledDate" type="datetime-local" defaultValue="2026-05-29T10:00" required />
           </label>
           <label className="wide">
-            Descripcion
+            Descripción
             <textarea
               name="description"
-              defaultValue="Reparacion de perdida de agua debajo de la cocina."
+              defaultValue="Reparación de pérdida de agua debajo de la cocina."
               required
             />
           </label>
@@ -837,7 +852,7 @@ function JobDetailPage({ jobId, context }: { jobId: string; context: AppContext 
         )}
         {job.status === "evidence_uploaded" && (
           <button className="button primary" onClick={() => void attachAiReview()} disabled={Boolean(busyAction)}>
-            {busyAction === "ai_reviewed" ? "Publicando..." : "Guardar revision IA"}
+            {busyAction === "ai_reviewed" ? "Publicando..." : "Guardar revisión IA"}
             <Bot size={17} />
           </button>
         )}
@@ -848,7 +863,7 @@ function JobDetailPage({ jobId, context }: { jobId: string; context: AppContext 
           </button>
         )}
         <a className="button text" href="/admin" onClick={linkTo("/admin")}>
-          Abrir auditoria
+          Abrir auditoría
         </a>
         {actionError && <p className="form-error">{actionError}</p>}
       </section>
@@ -859,9 +874,9 @@ function JobDetailPage({ jobId, context }: { jobId: string; context: AppContext 
           <VerificationTimeline job={selectedJob} evidence={jobEvidence} arkivEvents={context.arkivEvents} />
         </div>
         <aside className="verification-panel">
-          <h2>Verificacion</h2>
+          <h2>Verificación</h2>
           <KeyValue label="Entity key solicitud" value={selectedJob.arkivEntityKeyCreated} />
-          <KeyValue label="Tx hash solicitud" value={selectedJob.arkivTxHashCreated} />
+          <KeyValue label="Tx hash solicitud" value={selectedJob.arkivTxHashCreated} referenceKind="tx" />
           <KeyValue
             label="Fecha programada"
             value={selectedJob.scheduledDate ? formatDate(selectedJob.scheduledDate) : "Sin fecha"}
@@ -886,7 +901,7 @@ function JobDetailPage({ jobId, context }: { jobId: string; context: AppContext 
       <section className="dark-band">
         <div>
           <span className="eyebrow inverted">Resultado final</span>
-          <h2>{review ? `${review.rating}/5 - ${review.comment}` : "Resena pendiente"}</h2>
+          <h2>{review ? `${review.rating}/5 - ${review.comment}` : "Reseña pendiente"}</h2>
           <p>
             El cierre crea el evento job_completed y deja un historial consultable por jobId desde Directus.
           </p>
@@ -932,7 +947,7 @@ function VerificationTimeline({
       txHash: latestEvidence?.arkivTxHash ?? null,
     },
     {
-      label: "Revision IA generada",
+      label: "Revisión IA generada",
       local: "job_evidence.ai_summary",
       event: "ai_review_generated",
       done: hasAi,
@@ -967,7 +982,7 @@ function VerificationTimeline({
           <div className="timeline-proof">
             <span>{row.event}</span>
             <ArkivReference value={row.entityKey} fallback="referencia local no publicada" />
-            {isArkivTxHash(row.txHash) && <ArkivReference value={row.txHash} />}
+            {isArkivTxHash(row.txHash) && <ArkivReference value={row.txHash} kind="tx" />}
           </div>
         </div>
       ))}
@@ -982,7 +997,7 @@ function ProviderDashboard({ context }: { context: AppContext }) {
     <main className="page">
       <PageTitle
         eyebrow="Panel prestador"
-        title="Trabajos asignados y proximo paso recomendado."
+        title="Trabajos asignados y próximo paso recomendado."
         text="Las acciones modifican el estado real en Directus para recorrer el guion de demo."
       />
       <div className="work-table">
@@ -1024,8 +1039,8 @@ function nextStep(status: JobStatus) {
     requested: "Aceptar solicitud",
     accepted: "Marcar en progreso",
     in_progress: "Subir evidencia before, progress o after",
-    evidence_uploaded: "Esperar revision IA",
-    ai_reviewed: "Esperar aprobacion del cliente",
+    evidence_uploaded: "Esperar revisión IA",
+    ai_reviewed: "Esperar aprobación del cliente",
     completed: "Trabajo cerrado",
   };
   return steps[status];
@@ -1092,8 +1107,8 @@ function NewEvidencePage({ jobId, context }: { jobId: string; context: AppContex
             <input name="file" type="file" accept="image/*" required />
           </label>
           <label className="wide">
-            Descripcion
-            <textarea name="description" defaultValue="Reparacion terminada sin perdida visible." />
+            Descripción
+            <textarea name="description" defaultValue="Reparación terminada sin pérdida visible." />
           </label>
         </div>
         <button className="button primary" type="submit" disabled={submitting}>
@@ -1234,7 +1249,7 @@ function EvidenceCard({ item, compact = false }: { item: JobEvidence; compact?: 
       </div>
       <div>
         <h3>{item.description}</h3>
-        <p>{item.aiSummary ?? "Analisis IA pendiente."}</p>
+        <p>{item.aiSummary ?? "Análisis IA pendiente."}</p>
         <div className="hash-line">
           <span>SHA-256</span>
           <code>{item.sha256Hash}</code>
@@ -1244,7 +1259,7 @@ function EvidenceCard({ item, compact = false }: { item: JobEvidence; compact?: 
           {item.arkivEntityKey ? (
             <ArkivReference value={item.arkivEntityKey} />
           ) : (
-            <span>Pendiente de publicacion en Arkiv</span>
+            <span>Pendiente de publicación en Arkiv</span>
           )}
         </div>
       </div>
@@ -1252,11 +1267,19 @@ function EvidenceCard({ item, compact = false }: { item: JobEvidence; compact?: 
   );
 }
 
-function KeyValue({ label, value }: { label: string; value: string | null }) {
+function KeyValue({
+  label,
+  value,
+  referenceKind = "entity",
+}: {
+  label: string;
+  value: string | null;
+  referenceKind?: ArkivReferenceKind;
+}) {
   return (
     <div className="key-value">
       <span>{label}</span>
-      <ArkivReference value={value} fallback={value ?? "Pendiente de publicacion"} />
+      <ArkivReference value={value} kind={referenceKind} fallback={value ?? "Pendiente de publicación"} />
     </div>
   );
 }

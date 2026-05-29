@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx src/api/server.ts",
     "arkiv:hello": "tsx scripts/arkiv-hello.ts",
+    "arkiv:cleanup": "tsx scripts/arkiv-cleanup.ts",
     "db:migrate": "tsx db/migrate.ts",
     "db:seed": "tsx db/seed.ts",
     "directus:seed": "tsx db/directus-seed.ts",
