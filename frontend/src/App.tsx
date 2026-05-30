@@ -42,6 +42,12 @@ import {
   fetchState,
   updateJobStatus,
 } from "./api/client";
+import categoryCleaning from "./assets/cleaning.png";
+import categoryElectric from "./assets/electric.png";
+import categoryGeneral from "./assets/general.png";
+import categoryGardening from "./assets/gardening.png";
+import categoryPlumbing from "./assets/plumbing.png";
+import categoryRepair from "./assets/repair.png";
 import heroEvidence from "./assets/hero-evidence.png";
 import processEvidence from "./assets/process-evidence.webp";
 import processRequest from "./assets/process-request.webp";
@@ -104,6 +110,57 @@ const categoryLabels: Record<string, string> = {
   home_care: "Cuidado del hogar",
   maintenance: "Mantenimiento",
 };
+
+const categoryShowcaseItems = [
+  {
+    key: "cleaning",
+    title: "Limpieza",
+    description: "Limpieza profunda para hogares, oficinas y espacios comunes.",
+    image: categoryCleaning,
+    imageAlt: "Elementos de limpieza para hogares y oficinas.",
+  },
+  {
+    key: "electric",
+    title: "Electricidad",
+    description: "Instalación y reparación de tomas, luminarias y tableros simples.",
+    image: categoryElectric,
+    imageAlt: "Herramientas y componentes para trabajos de electricidad.",
+  },
+  {
+    key: "gardening",
+    title: "Jardinería",
+    description: "Corte de césped, mantenimiento de jardines y limpieza de patios.",
+    image: categoryGardening,
+    imageAlt: "Herramientas de jardinería para mantenimiento de espacios exteriores.",
+  },
+  {
+    key: "repair",
+    title: "Reparaciones",
+    description: "Visitas de diagnóstico y mantenimiento preventivo del hogar.",
+    image: categoryRepair,
+    imageAlt: "Herramientas para reparaciones y mantenimiento preventivo del hogar.",
+  },
+  {
+    key: "plumbing",
+    title: "Plomería",
+    description: "Reparaciones de pérdidas, grifería, desagües y conexiones de agua.",
+    image: categoryPlumbing,
+    imageAlt: "Herramientas y materiales para trabajos de plomería.",
+  },
+  {
+    key: "maintenance",
+    title: "Mantenimiento general",
+    description: "Arreglos generales, ajustes, colocaciones y mantenimiento menor.",
+    image: categoryGeneral,
+    imageAlt: "Herramientas para mantenimiento general del hogar.",
+  },
+];
+
+const categoryShowcaseColumns = [
+  [categoryShowcaseItems[0], categoryShowcaseItems[3]],
+  [categoryShowcaseItems[1], categoryShowcaseItems[4]],
+  [categoryShowcaseItems[2], categoryShowcaseItems[5]],
+];
 
 function parseRoute(): Route {
   const path = window.location.pathname;
@@ -550,6 +607,8 @@ function HomePage({ jobs, evidence }: { jobs: Job[]; evidence: JobEvidence[] }) 
         </div>
       </section>
 
+      <CategoryShowcaseCarousel />
+
       <section className="section process-section">
         <div className="process-heading">
           <div>
@@ -669,6 +728,29 @@ function ProcessStep({
         <p>{text}</p>
       </div>
     </article>
+  );
+}
+
+function CategoryShowcaseCarousel() {
+  return (
+    <section className="category-showcase-section" aria-label="Categorías de servicios">
+      <div className="category-showcase">
+        {categoryShowcaseColumns.map((categories, tileIndex) => (
+          <article className={`category-tile tile-${tileIndex + 1}`} key={`category-tile-${tileIndex}`}>
+            {categories.map((category, layerIndex) => (
+              <div className={`category-tile-layer layer-${layerIndex + 1}`} key={`${category.key}-${layerIndex}`}>
+                <img src={category.image} alt={category.imageAlt} loading="lazy" />
+                <div className="category-tile-copy">
+                  <span>Categoría</span>
+                  <h3>{category.title}</h3>
+                  <p>{category.description}</p>
+                </div>
+              </div>
+            ))}
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
