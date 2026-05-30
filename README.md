@@ -2,6 +2,12 @@
 
 Mano Local es un prototipo de marketplace local de servicios donde cada trabajo genera evidencia verificable: solicitud, fotos del prestador, revisión de IA y cierre del servicio. La app usa Directus o SQLite como base operativa, pero la capa de confianza está en Arkiv: cada paso importante publica una entidad real en la red de prueba Braga y guarda su `entityKey` y `txHash` para auditoría.
 
+## Participantes
+
+- Rosales, Santiago
+- Gutiérrez Karen
+- Martínez Maximiliano
+
 ## Idea Principal
 
 El problema que resuelve es simple: en servicios del hogar o mantenimiento suele ser difícil probar que un trabajo fue pedido, realizado, validado y cerrado correctamente. Mano Local arma un historial verificable por trabajo:
@@ -89,27 +95,33 @@ Requisitos:
 
 - Node.js 20 o superior recomendado.
 - npm.
-- Una instancia Directus configurada si se usa `DATA_ADAPTER=directus`.
+- Una instancia de Directus disponible si se usa `DATA_ADAPTER=directus`.
 - Una private key de prueba para Arkiv Braga.
 
-Instalar dependencias:
+Los comandos de cada bloque asumen que se ejecutan desde la raíz del proyecto.
+
+1. Instalar dependencias del backend:
 
 ```bash
 cd backend
 npm install
+```
 
-cd ../frontend
+2. Instalar dependencias del frontend:
+
+```bash
+cd frontend
 npm install
 ```
 
-Crear configuracion del backend:
+3. Crear la configuración del backend:
 
 ```bash
 cd backend
 cp .env.example .env
 ```
 
-Configurar `backend/.env`:
+4. Configurar `backend/.env` con las credenciales y puertos locales:
 
 ```env
 PRIVATE_KEY=0x...
@@ -122,20 +134,41 @@ DIRECTUS_URL=https://tu-directus.example.com
 DIRECTUS_TOKEN=tu-token
 ```
 
+5. Preparar la base operativa:
+
+- Para usar Directus, configurar una instancia accesible, crear las colecciones pertinentes para el flujo de la aplicación y generar un token de API con permisos sobre esas colecciones y Directus Files.
+- Para usar SQLite local, cambiar `DATA_ADAPTER=sqlite`; el archivo se crea en la ruta indicada por `DATABASE_URL`.
+
+6. Sembrar datos según el adaptador elegido:
+
+Directus:
+
+```bash
+cd backend
+npm run directus:seed
+```
+
+SQLite local:
+
+```bash
+cd backend
+npm run db:migrate
+npm run db:seed
+```
+
 Notas:
 
+- El backend expone la API en `http://127.0.0.1:3030`.
+- El frontend se ejecuta en `http://127.0.0.1:5173`.
 - El frontend está proxyeando `/api` y `/uploads` hacia `http://127.0.0.1:3030`.
-- Si se usa SQLite local, cambiar `DATA_ADAPTER=sqlite`.
 - `GOOGLE_GEN_AI` está reservado para integración de IA real; el flujo actual puede usar resumen/estado simulado en el backend.
 
 ## Ejecutar con Directus
 
 Directus es la base operativa editable del prototipo. A grandes rasgos se necesita:
 
-- Crear las colecciones `users_ml`, `services_ml`, `provider_profiles_ml`, `jobs_ml`, `job_evidence_ml`, `reviews_ml` y `arkiv_events_ml`.
-- Crear relaciones entre usuarios, servicios, trabajos, evidencias y resenas.
-- Crear el campo `file` en `job_evidence_ml` apuntando a Directus Files.
-- Crear campos para referencias Arkiv: `arkiv_entity_key_created`, `arkiv_tx_hash_created`, `arkiv_entity_key`, `arkiv_tx_hash`, `entity_key`, `tx_hash`.
+- Tener una instancia de Directus accesible desde el backend.
+- Crear las colecciones pertinentes para usuarios, servicios, prestadores, trabajos, evidencias, reseñas y eventos Arkiv.
 - Permitir al token de API hacer CRUD sobre esas colecciones y subir/leer archivos en Directus Files.
 - Guardar `DIRECTUS_URL` y `DIRECTUS_TOKEN` en `backend/.env`.
 
@@ -156,7 +189,7 @@ Ese comando:
 
 - limpia las colecciones demo `*_ml`;
 - sube evidencias PNG a Directus Files;
-- crea usuarios, servicios, perfiles, trabajos, evidencias y resenas;
+- crea usuarios, servicios, perfiles, trabajos, evidencias y reseñas;
 - publica los eventos reales en Arkiv Braga;
 - guarda `entityKey` y `txHash` en Directus.
 
@@ -203,7 +236,7 @@ npm run db:seed
 
 Levantar backend y frontend igual que en el flujo Directus.
 
-## Scripts Utiles
+## Scripts Útiles
 
 Backend:
 
