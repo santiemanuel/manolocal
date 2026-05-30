@@ -1,0 +1,27 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_DIRECTUS_URL: ${VITE_DIRECTUS_URL:-}
+    container_name: manolocal_app
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    ports:
+      - "${NODE_APP_HOST_PORT:-3030}:${NODE_APP_INTERNAL_PORT:-3030}"
+    environment:
+      NODE_ENV: production
+      API_HOST: 0.0.0.0
+      API_PORT: ${NODE_APP_INTERNAL_PORT:-3030}
+      DATABASE_URL: ${DATABASE_URL:-./data/app.db}
+      UPLOADS_DIR: ${UPLOADS_DIR:-./uploads}
+      FRONTEND_DIST_DIR: ./public
+    volumes:
+      - manolocal_data:/usr/src/app/backend/data
+      - manolocal_uploads:/usr/src/app/backend/uploads
+
+volumes:
+  manolocal_data:
+  manolocal_uploads:

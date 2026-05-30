@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { basename, dirname, extname, isAbsolute, join, resolve } from "node:path";
+import { basename, dirname, extname, isAbsolute, join, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
@@ -33,6 +33,12 @@ const backendRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 config({ path: resolve(backendRoot, ".env"), quiet: true });
 
 const port = Number(process.env.API_PORT ?? 3001);
+const host = process.env.API_HOST?.trim() || "127.0.0.1";
+const corsOrigin = process.env.CORS_ORIGIN?.trim() || "http://127.0.0.1:5173";
+const frontendDistDirSetting = process.env.FRONTEND_DIST_DIR?.trim() || "./public";
+const frontendDistDir = isAbsolute(frontendDistDirSetting)
+  ? resolve(frontendDistDirSetting)
+  : resolve(backendRoot, frontendDistDirSetting);
 const repositories = createRepositories();
 let walletClient: ReturnType<typeof createArkivWalletClient> | null = null;
 const evidenceFlowTypes: EvidenceType[] = ["before", "progress", "after"];
@@ -49,7 +55,7 @@ const sseClients = new Set<ServerResponse>();
 
 function sendJson(response: ServerResponse, statusCode: number, body: unknown) {
   response.writeHead(statusCode, {
-    "Access-Control-Allow-Origin": "http://127.0.0.1:5173",
+    "Access-Control-Allow-Origin": corsOrigin,
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
     "Content-Type": "application/json; charset=utf-8",
@@ -74,7 +80,7 @@ function broadcastSse(event: string, data: SsePayload) {
 
 function openSse(request: IncomingMessage, response: ServerResponse) {
   response.writeHead(200, {
-    "Access-Control-Allow-Origin": "http://127.0.0.1:5173",
+    "Access-Control-Allow-Origin": corsOrigin,
     "Cache-Control": "no-cache, no-transform",
     "Connection": "keep-alive",
     "Content-Type": "text/event-stream; charset=utf-8",
@@ -115,6 +121,64 @@ function uploadContentType(pathname: string) {
   return "application/octet-stream";
 }
 
+function frontendContentType(pathname: string) {
+  const extension = extname(pathname).toLowerCase();
+
+  if (extension === ".html") return "text/html; charset=utf-8";
+  if (extension === ".js" || extension === ".mjs") return "text/javascript; charset=utf-8";
+  if (extension === ".css") return "text/css; charset=utf-8";
+  if (extension === ".json") return "application/json; charset=utf-8";
+  if (extension === ".svg") return "image/svg+xml";
+  if (extension === ".ico") return "image/x-icon";
+  if (extension === ".png") return "image/png";
+  if (extension === ".jpg" || extension === ".jpeg") return "image/jpeg";
+  if (extension === ".webp") return "image/webp";
+  if (extension === ".woff") return "font/woff";
+  if (extension === ".woff2") return "font/woff2";
+
+  return "application/octet-stream";
+}
+
+async function trySendFrontendFile(response: ServerResponse, pathname: string) {
+  let decodedPathname: string;
+  try {
+    decodedPathname = decodeURIComponent(pathname);
+  } catch {
+    return false;
+  }
+
+  const relativePath = decodedPathname.replace(/^[/\\]+/, "") || "index.html";
+  if (relativePath.includes("\0")) {
+    return false;
+  }
+
+  const filePath = resolve(frontendDistDir, relativePath);
+  const frontendRoot = frontendDistDir.endsWith(sep) ? frontendDistDir : `${frontendDistDir}${sep}`;
+  if (filePath !== frontendDistDir && !filePath.startsWith(frontendRoot)) {
+    return false;
+  }
+
+  try {
+    const buffer = await readFile(filePath);
+    const isIndex = basename(filePath) === "index.html";
+    response.writeHead(200, {
+      "Cache-Control": isIndex ? "no-cache" : "public, max-age=31536000, immutable",
+      "Content-Type": frontendContentType(filePath),
+    });
+    response.end(buffer);
+    return true;
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "ENOENT" || code === "EISDIR") {
+        return false;
+      }
+    }
+
+    throw error;
+  }
+}
+
 async function sendUpload(response: ServerResponse, pathname: string) {
   const uploadsDirSetting = process.env.UPLOADS_DIR?.trim() || "./uploads";
   const directory = isAbsolute(uploadsDirSetting) ? uploadsDirSetting : resolve(process.cwd(), uploadsDirSetting);
@@ -122,7 +186,7 @@ async function sendUpload(response: ServerResponse, pathname: string) {
   const buffer = await readFile(join(directory, fileName));
 
   response.writeHead(200, {
-    "Access-Control-Allow-Origin": "http://127.0.0.1:5173",
+    "Access-Control-Allow-Origin": corsOrigin,
     "Content-Type": uploadContentType(fileName),
   });
   response.end(buffer);
@@ -662,6 +726,20 @@ async function route(request: IncomingMessage, response: ServerResponse) {
     return;
   }
 
+  if (request.method === "GET") {
+    const assetServed = await trySendFrontendFile(response, url.pathname);
+    if (assetServed) {
+      return;
+    }
+
+    if (!extname(url.pathname)) {
+      const indexServed = await trySendFrontendFile(response, "/index.html");
+      if (indexServed) {
+        return;
+      }
+    }
+  }
+
   sendJson(response, 404, { error: "Ruta no encontrada." });
 }
 
@@ -671,8 +749,8 @@ const server = createServer((request, response) => {
   });
 });
 
-server.listen(port, "127.0.0.1", () => {
-  console.log(`API local lista en http://127.0.0.1:${port}`);
+server.listen(port, host, () => {
+  console.log(`Aplicación lista en http://${host}:${port}`);
 });
 
 process.on("SIGINT", () => {
