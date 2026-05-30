@@ -114,7 +114,7 @@ Configurar `backend/.env`:
 ```env
 PRIVATE_KEY=0x...
 WALLET_ADDRESS=0x...
-API_PORT=3002
+API_PORT=3030
 DATABASE_URL=./data/app.db
 UPLOADS_DIR=./uploads
 DATA_ADAPTER=directus
@@ -124,7 +124,7 @@ DIRECTUS_TOKEN=tu-token
 
 Notas:
 
-- El frontend está proxyeando `/api` y `/uploads` hacia `http://127.0.0.1:3002`.
+- El frontend está proxyeando `/api` y `/uploads` hacia `http://127.0.0.1:3030`.
 - Si se usa SQLite local, cambiar `DATA_ADAPTER=sqlite`.
 - `GOOGLE_GEN_AI` está reservado para integración de IA real; el flujo actual puede usar resumen/estado simulado en el backend.
 
@@ -188,7 +188,7 @@ Configurar:
 
 ```env
 DATA_ADAPTER=sqlite
-API_PORT=3002
+API_PORT=3030
 DATABASE_URL=./data/app.db
 UPLOADS_DIR=./uploads
 ```
