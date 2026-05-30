@@ -52,6 +52,7 @@ import categoryGardening from "./assets/gardening.png";
 import categoryPlumbing from "./assets/plumbing.png";
 import categoryRepair from "./assets/repair.png";
 import heroEvidence from "./assets/hero-evidence.png";
+import logoMl from "./assets/logo_ml.png";
 import processEvidence from "./assets/process-evidence.webp";
 import processRequest from "./assets/process-request.webp";
 import processReview from "./assets/process-review.webp";
@@ -441,11 +442,12 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Announcement />
       <header className="site-header">
         <a className="brand" href="/" onClick={linkTo("/")}>
-          <span className="brand-mark">SV</span>
-          <span>Servicios Verificables</span>
+          <span className="brand-mark">
+            <img className="brand-logo" src={logoMl} alt="" />
+          </span>
+          <span>ManoLocal</span>
         </a>
         <button className="icon-button mobile-menu" aria-label="Abrir menu" onClick={() => setMenuOpen(true)}>
           <Menu size={20} />
@@ -469,10 +471,6 @@ function App() {
             onClick={() => setMenuOpen(false)}
           />
         </nav>
-        <a className="header-cta" href="/jobs/job_001" onClick={linkTo("/jobs/job_001")}>
-          Demo
-          <ArrowRight size={16} />
-        </a>
       </header>
       {syncMessage && <div className="sync-message">{syncMessage}</div>}
 
@@ -528,18 +526,6 @@ function NavLink({
     </a>
   );
 }
-
-function Announcement() {
-  return (
-    <div className="announcement">
-      <span>Evidencia local, análisis IA y eventos verificables en Arkiv Braga.</span>
-      <a href="/admin" onClick={linkTo("/admin")}>
-        Auditar demo
-      </a>
-    </div>
-  );
-}
-
 function HomePage({ jobs, evidence }: { jobs: Job[]; evidence: JobEvidence[] }) {
   const completed = jobs.filter((job) => job.status === "completed").length;
   const verifiedEvidence = evidence.filter((item) => item.arkivEntityKey).length;
@@ -654,6 +640,9 @@ function HomePage({ jobs, evidence }: { jobs: Job[]; evidence: JobEvidence[] }) 
           </form>
         </div>
         <div className="hero-media">
+          <div className="hero-logo-seal" aria-label="ManoLocal">
+            <img src={logoMl} alt="" />
+          </div>
           <img src={heroEvidence} alt="Técnico documentando una reparación para evidencia verificable" />
           <div className="console-panel">
             <div className="console-topline">
@@ -1165,6 +1154,8 @@ function JobDetailPage({ jobId, context }: { jobId: string; context: AppContext 
   const service = context.services.find((item) => item.id === selectedJob.serviceId);
   const client = findUser(context.users, selectedJob.clientId);
   const provider = findUser(context.users, selectedJob.providerId);
+  const clientName = client?.name ?? "Cliente no indicado";
+  const providerName = provider?.name ?? "Sin prestador";
   const jobEvidence = context.evidence.filter((item) => item.jobId === selectedJob.id);
   const review = context.reviews.find((item) => item.jobId === selectedJob.id);
   const hasBeforeEvidence = hasEvidenceType(jobEvidence, "before");
@@ -1199,12 +1190,28 @@ function JobDetailPage({ jobId, context }: { jobId: string; context: AppContext 
       <section className="job-hero">
         <div>
           <span className="eyebrow">{service?.name ?? "Servicio"}</span>
-          <h1>{selectedJob.title}</h1>
+          <div className="job-title-row">
+            <h1>{selectedJob.title}</h1>
+            <div className="job-provider-card" aria-label={`Prestador: ${providerName}`}>
+              <Avatar name={providerName} imageUrl={provider?.avatarUrl ?? null} />
+              <div>
+                <span>Prestador</span>
+                <strong>{providerName}</strong>
+              </div>
+            </div>
+          </div>
           <p>{selectedJob.description}</p>
-          <div className="trust-line">
-            <span>{client?.name}</span>
-            <span>{provider?.name ?? "Sin prestador"}</span>
-            <span>{job.addressArea ?? "Zona no indicada"}</span>
+          <div className="job-meta-line">
+            <span>
+              <UserRound size={15} />
+              <span>Cliente</span>
+              <strong>{clientName}</strong>
+            </span>
+            <span>
+              <MapPin size={15} />
+              <span>Ubicación</span>
+              <strong>{job.addressArea ?? "Zona no indicada"}</strong>
+            </span>
           </div>
         </div>
         <StatusPill status={job.status} />
@@ -1313,7 +1320,8 @@ function JobDetailPage({ jobId, context }: { jobId: string; context: AppContext 
           <span className="eyebrow inverted">Resultado final</span>
           <h2>{review ? `${review.rating}/5 - ${review.comment}` : "Reseña pendiente"}</h2>
           <p>
-            El cierre crea el evento job_completed y deja un historial consultable por jobId desde Directus.
+            El cierre crea el evento <TechnicalToken>job_completed</TechnicalToken> y deja un historial consultable por
+            jobId desde Directus.
           </p>
         </div>
         <StatusPill status={selectedJob.status} light />
@@ -1393,10 +1401,12 @@ function VerificationTimeline({
           )}
           <div>
             <strong>{row.label}</strong>
-            <span>{row.local}</span>
+            <span>
+              <TechnicalText text={row.local} />
+            </span>
           </div>
           <div className="timeline-proof">
-            <span>{row.event}</span>
+            <TechnicalToken>{row.event}</TechnicalToken>
             {row.inProgress ? (
               <span className="thinking-text">Análisis en progreso</span>
             ) : (
@@ -1751,12 +1761,36 @@ function AdminPage({
   );
 }
 
+function TechnicalText({ text }: { text: string }) {
+  const parts = text.split(/(\b[a-z]+(?:_[a-z0-9]+)+\b)/g);
+
+  return (
+    <>
+      {parts.map((part, index) =>
+        /\b[a-z]+(?:_[a-z0-9]+)+\b/.test(part) ? (
+          <span className="technical-token" key={`${part}-${index}`}>
+            {part}
+          </span>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
+function TechnicalToken({ children }: { children: string }) {
+  return <span className="technical-token">{children}</span>;
+}
+
 function PageTitle({ eyebrow, title, text }: { eyebrow: string; title: string; text: string }) {
   return (
     <section className="page-title">
       <span className="eyebrow">{eyebrow}</span>
       <h1>{title}</h1>
-      <p>{text}</p>
+      <p>
+        <TechnicalText text={text} />
+      </p>
     </section>
   );
 }
@@ -1844,14 +1878,18 @@ function KeyValue({
   );
 }
 
-function Avatar({ name, large = false }: { name: string; large?: boolean }) {
+function Avatar({ name, large = false, imageUrl = null }: { name: string; large?: boolean; imageUrl?: string | null }) {
   const initials = name
     .split(" ")
     .map((part) => part[0])
     .join("")
     .slice(0, 2);
 
-  return <div className={large ? "avatar large" : "avatar"}>{initials}</div>;
+  return (
+    <div className={large ? "avatar large" : "avatar"}>
+      {imageUrl ? <img src={imageUrl} alt={`Foto de ${name}`} loading="lazy" /> : initials}
+    </div>
+  );
 }
 
 function EmptyState({ text }: { text: string }) {
