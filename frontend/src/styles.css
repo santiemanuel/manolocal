@@ -439,6 +439,30 @@ p {
   box-shadow: inset 0 0 0 1px var(--near-black);
 }
 
+.button.secondary {
+  background: var(--surface);
+  color: var(--blue);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blue) 52%, transparent);
+}
+
+.button.secondary:hover {
+  background: var(--pale-blue);
+  color: var(--blue);
+  box-shadow: inset 0 0 0 1px var(--blue);
+}
+
+.button.final {
+  background: var(--success);
+  color: var(--on-dark);
+  box-shadow: inset 0 0 0 1px var(--success);
+}
+
+.button.final:hover {
+  background: var(--success-surface);
+  color: var(--success);
+  box-shadow: inset 0 0 0 1px var(--success);
+}
+
 .button.light {
   background: transparent;
   color: var(--on-dark);
@@ -465,6 +489,86 @@ p {
 .button.compact {
   min-height: 38px;
   padding: 8px 16px;
+}
+
+.button.publishing,
+.button.publishing:hover {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  cursor: wait;
+  background:
+    linear-gradient(
+      105deg,
+      var(--near-black) 0%,
+      var(--blue) 34%,
+      var(--success) 50%,
+      var(--blue) 66%,
+      var(--near-black) 100%
+    );
+  background-size: 240% 100%;
+  color: var(--on-dark);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--on-dark) 18%, transparent),
+    0 12px 28px color-mix(in srgb, var(--blue) 24%, transparent);
+  animation: publishing-gradient 1.45s linear infinite;
+}
+
+.button.publishing::after {
+  position: absolute;
+  inset: -40% -22%;
+  z-index: -1;
+  content: "";
+  background:
+    linear-gradient(
+      110deg,
+      transparent 24%,
+      color-mix(in srgb, var(--on-dark) 22%, transparent) 46%,
+      color-mix(in srgb, var(--on-dark) 46%, transparent) 52%,
+      color-mix(in srgb, var(--on-dark) 22%, transparent) 58%,
+      transparent 76%
+    );
+  transform: translateX(-55%);
+  animation: publishing-shine 1.15s var(--ease-out-quart) infinite;
+}
+
+.button.publishing svg {
+  opacity: 0.9;
+  transform-origin: center;
+  animation: publishing-icon-pulse 1.2s var(--ease-out-quart) infinite;
+}
+
+@keyframes publishing-gradient {
+  from {
+    background-position: 220% 0;
+  }
+
+  to {
+    background-position: 0 0;
+  }
+}
+
+@keyframes publishing-shine {
+  from {
+    transform: translateX(-55%);
+  }
+
+  to {
+    transform: translateX(55%);
+  }
+}
+
+@keyframes publishing-icon-pulse {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(0.96);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .hero-media {
@@ -1318,6 +1422,33 @@ label.wide {
   grid-column: 1 / -1;
 }
 
+.wide {
+  grid-column: 1 / -1;
+}
+
+.evidence-job-context {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--stone);
+}
+
+.evidence-job-context span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.evidence-job-context strong {
+  color: var(--ink);
+  font-size: 18px;
+  line-height: 1.25;
+}
+
 input,
 select,
 textarea {
@@ -1340,6 +1471,125 @@ select:focus,
 textarea:focus {
   border-color: var(--focus);
   outline: none;
+}
+
+.file-drop-zone {
+  position: relative;
+  cursor: pointer;
+}
+
+.file-drop-zone input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.file-drop-surface {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  min-height: 112px;
+  border: 1px dashed color-mix(in srgb, var(--ink) 36%, transparent);
+  border-radius: 8px;
+  padding: 20px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-hover) 64%, transparent), transparent),
+    var(--surface);
+  color: var(--ink);
+  transition:
+    background-color var(--button-tween),
+    border-color var(--button-tween),
+    box-shadow var(--button-tween);
+}
+
+.file-drop-surface svg {
+  color: var(--blue);
+}
+
+.file-drop-surface strong,
+.file-drop-surface small {
+  display: block;
+}
+
+.file-drop-surface strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-drop-surface small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.file-drop-zone:hover .file-drop-surface,
+.file-drop-zone:focus-within .file-drop-surface,
+.file-drop-zone.is-dragging .file-drop-surface {
+  border-color: var(--blue);
+  background: var(--pale-blue);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blue) 28%, transparent);
+}
+
+.file-drop-zone.has-file .file-drop-surface {
+  border-color: var(--success);
+  background: var(--success-surface);
+}
+
+.file-drop-zone.has-file .file-drop-surface svg {
+  color: var(--success);
+}
+
+.file-thumbnail {
+  display: block;
+  width: 70px;
+  height: 70px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--near-black);
+}
+
+.file-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.file-remove-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 16%, transparent);
+  transition:
+    background-color var(--button-tween),
+    color var(--button-tween),
+    box-shadow var(--button-tween);
+}
+
+.file-remove-button:hover,
+.file-remove-button:focus-visible {
+  background: var(--warning-surface);
+  color: var(--warning);
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--warning);
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .job-actions {
@@ -1412,6 +1662,11 @@ textarea:focus {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
+}
+
+.timeline-row.in-progress {
+  border-color: color-mix(in srgb, var(--blue) 38%, var(--border));
+  background: color-mix(in srgb, var(--pale-blue) 42%, var(--surface));
 }
 
 .timeline-row.link-row {
@@ -1599,6 +1854,58 @@ code {
 
 .proof-state .arkiv-reference {
   width: auto;
+}
+
+.thinking-text {
+  width: max-content;
+  max-width: 100%;
+  background:
+    linear-gradient(
+      100deg,
+      var(--muted) 0%,
+      var(--blue) 34%,
+      var(--success) 50%,
+      var(--blue) 66%,
+      var(--muted) 100%
+    );
+  background-size: 220% 100%;
+  background-clip: text;
+  color: transparent;
+  font-weight: 700;
+  animation: thinking-gradient 1.45s linear infinite;
+}
+
+.timeline-proof .thinking-text,
+.evidence-card .thinking-text {
+  color: transparent;
+}
+
+@keyframes thinking-gradient {
+  from {
+    background-position: 220% 0;
+  }
+
+  to {
+    background-position: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thinking-text,
+  .button.publishing,
+  .button.publishing::after,
+  .button.publishing svg {
+    animation: none;
+  }
+
+  .thinking-text {
+    background: none;
+    color: var(--blue);
+  }
+
+  .button.publishing::after {
+    display: none;
+  }
 }
 
 .work-row {

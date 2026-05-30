@@ -178,6 +178,7 @@ export async function createAIReviewGeneratedEntity(
   job: Job,
   evidence: JobEvidence,
   dependencies: PublishDependencies,
+  analyzedEvidence: JobEvidence[] = [evidence],
 ): Promise<ArkivEvent> {
   const eventType = "ai_review_generated";
   const payload = {
@@ -192,6 +193,14 @@ export async function createAIReviewGeneratedEntity(
       summary: evidence.aiSummary,
       status: evidence.aiStatus,
       sourceHash: evidence.sha256Hash,
+      evidenceAnalysis: analyzedEvidence.map((item) => ({
+        evidenceId: item.id,
+        type: item.type,
+        summary: item.aiSummary,
+        status: item.aiStatus,
+        sourceHash: item.sha256Hash,
+        createdAt: item.createdAt,
+      })),
     },
   };
 
@@ -207,6 +216,7 @@ export async function createAIReviewGeneratedEntity(
         { key: "evidenceId", value: evidence.id },
         { key: "aiStatus", value: evidence.aiStatus },
         { key: "sha256Hash", value: evidence.sha256Hash },
+        { key: "evidenceCount", value: analyzedEvidence.length },
       ],
     },
     dependencies,

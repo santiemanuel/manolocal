@@ -28,12 +28,15 @@ import {
 } from "lucide-react";
 import {
   Dispatch,
+  DragEvent,
   FormEvent,
   MouseEvent,
   ReactNode,
+  ChangeEvent,
   SetStateAction,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -82,9 +85,55 @@ type Route =
   | { name: "newJob"; serviceId: string | null; providerId: string | null }
   | { name: "jobDetail"; jobId: string }
   | { name: "providerDashboard" }
-  | { name: "newEvidence"; jobId: string }
+  | { name: "newEvidence"; jobId: string; evidenceType: EvidenceUploadType | null }
   | { name: "admin" }
   | { name: "notFound" };
+
+type EvidenceUploadType = Extract<EvidenceType, "before" | "progress" | "after">;
+type AiAnalysisSsePayload = {
+  jobId: string;
+  status: "started" | "completed" | "failed";
+  state?: RemoteState;
+};
+
+const evidenceUploadCopy: Record<
+  EvidenceUploadType,
+  {
+    eyebrow: string;
+    actionLabel: string;
+    title: string;
+    text: string;
+    descriptionPlaceholder: string;
+    buttonClass: string;
+  }
+> = {
+  before: {
+    eyebrow: "Evidencia inicial",
+    actionLabel: "Subir estado inicial",
+    title: "Documentar estado inicial",
+    text: "El archivo se guarda como evidencia inicial, con hash SHA-256 y evento evidence_uploaded.",
+    descriptionPlaceholder: "Describí el estado actual del problema reportado por el usuario.",
+    buttonClass: "button primary",
+  },
+  progress: {
+    eyebrow: "Evidencia de progreso",
+    actionLabel: "Subir progreso",
+    title: "Documentar avance",
+    text: "El archivo se guarda como avance intermedio y queda disponible para el análisis final.",
+    descriptionPlaceholder:
+      "Describí el estado actual y las acciones realizadas por el proveedor para llegar a este avance parcial.",
+    buttonClass: "button secondary",
+  },
+  after: {
+    eyebrow: "Resultado final",
+    actionLabel: "Subir resultado final",
+    title: "Documentar resultado final",
+    text: "El archivo se guarda como evidencia final y dispara el análisis con todas las evidencias del trabajo.",
+    descriptionPlaceholder:
+      "Describí el estado actual y las acciones realizadas por el proveedor para llegar a este resultado final.",
+    buttonClass: "button final",
+  },
+};
 
 const statusLabels: Record<JobStatus, string> = {
   requested: "Solicitado",
@@ -178,8 +227,16 @@ function parseRoute(): Route {
   }
   if (parts[0] === "jobs" && parts[1]) return { name: "jobDetail", jobId: parts[1] };
   if (parts[0] === "provider" && parts.length === 1) return { name: "providerDashboard" };
+  if (
+    parts[0] === "provider" &&
+    parts[1] === "jobs" &&
+    parts[3] === "evidence" &&
+    parts[5] === "new"
+  ) {
+    return { name: "newEvidence", jobId: parts[2], evidenceType: parseEvidenceUploadType(parts[4]) };
+  }
   if (parts[0] === "provider" && parts[1] === "jobs" && parts[3] === "evidence" && parts[4] === "new") {
-    return { name: "newEvidence", jobId: parts[2] };
+    return { name: "newEvidence", jobId: parts[2], evidenceType: parseEvidenceUploadType(query.get("type")) };
   }
   if (parts[0] === "admin") return { name: "admin" };
 
@@ -314,6 +371,7 @@ function App() {
   const [reviews, setReviews] = useState<Review[]>(initialReviews);
   const [arkivEvents, setArkivEvents] = useState<ArkivEvent[]>(initialArkivEvents);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [aiAnalysisInProgressJobIds, setAiAnalysisInProgressJobIds] = useState<Set<string>>(() => new Set());
 
   function applyRemoteState(state: RemoteState) {
     setUsers(state.users);
@@ -332,6 +390,35 @@ function App() {
       .catch(() => setSyncMessage("API local sin conexión; la página sigue en modo demo."));
   }, []);
 
+  useEffect(() => {
+    const events = new EventSource("/api/events");
+
+    events.addEventListener("ai_analysis", (event) => {
+      const payload = JSON.parse((event as MessageEvent<string>).data) as AiAnalysisSsePayload;
+
+      if (payload.status === "started") {
+        setAiAnalysisInProgressJobIds((current) => new Set(current).add(payload.jobId));
+        return;
+      }
+
+      setAiAnalysisInProgressJobIds((current) => {
+        const next = new Set(current);
+        next.delete(payload.jobId);
+        return next;
+      });
+
+      if (payload.state) {
+        applyRemoteState(payload.state);
+      }
+    });
+
+    events.onerror = () => {
+      events.close();
+    };
+
+    return () => events.close();
+  }, []);
+
   const context = useMemo(
     () => ({
       users,
@@ -341,13 +428,15 @@ function App() {
       jobs,
       evidence,
       arkivEvents,
+      aiAnalysisInProgressJobIds,
       setJobs,
       setEvidence,
       setArkivEvents,
+      setAiAnalysisInProgressJobIds,
       applyRemoteState,
       setSyncMessage,
     }),
-    [users, services, providerProfiles, reviews, jobs, evidence, arkivEvents],
+    [users, services, providerProfiles, reviews, jobs, evidence, arkivEvents, aiAnalysisInProgressJobIds],
   );
 
   return (
@@ -398,7 +487,9 @@ function App() {
       )}
       {route.name === "jobDetail" && <JobDetailPage jobId={route.jobId} context={context} />}
       {route.name === "providerDashboard" && <ProviderDashboard context={context} />}
-      {route.name === "newEvidence" && <NewEvidencePage jobId={route.jobId} context={context} />}
+      {route.name === "newEvidence" && (
+        <NewEvidencePage jobId={route.jobId} evidenceType={route.evidenceType} context={context} />
+      )}
       {route.name === "admin" && <AdminPage jobs={jobs} evidence={evidence} arkivEvents={arkivEvents} />}
       {route.name === "notFound" && <NotFoundPage />}
     </div>
@@ -731,6 +822,11 @@ function ProcessStep({
   );
 }
 
+function parseEvidenceUploadType(value: string | null): EvidenceUploadType | null {
+  if (value === "before" || value === "progress" || value === "after") return value;
+  return null;
+}
+
 function CategoryShowcaseCarousel() {
   return (
     <section className="category-showcase-section" aria-label="Categorías de servicios">
@@ -1036,12 +1132,28 @@ type AppContext = {
   jobs: Job[];
   evidence: JobEvidence[];
   arkivEvents: ArkivEvent[];
+  aiAnalysisInProgressJobIds: Set<string>;
   setJobs: Dispatch<SetStateAction<Job[]>>;
   setEvidence: Dispatch<SetStateAction<JobEvidence[]>>;
   setArkivEvents: Dispatch<SetStateAction<ArkivEvent[]>>;
+  setAiAnalysisInProgressJobIds: Dispatch<SetStateAction<Set<string>>>;
   applyRemoteState: (state: RemoteState) => void;
   setSyncMessage: Dispatch<SetStateAction<string | null>>;
 };
+
+function hasEvidenceType(evidence: JobEvidence[], type: EvidenceUploadType) {
+  return evidence.some((item) => item.type === type);
+}
+
+function nextEvidenceUploadType(evidence: JobEvidence[]): EvidenceUploadType | null {
+  if (hasEvidenceType(evidence, "after")) return null;
+  if (!hasEvidenceType(evidence, "before")) return "before";
+  return "progress";
+}
+
+function evidenceUploadHref(jobId: string, type: EvidenceUploadType) {
+  return `/provider/jobs/${jobId}/evidence/${type}/new`;
+}
 
 function JobDetailPage({ jobId, context }: { jobId: string; context: AppContext }) {
   const [busyAction, setBusyAction] = useState<JobStatus | null>(null);
@@ -1055,6 +1167,10 @@ function JobDetailPage({ jobId, context }: { jobId: string; context: AppContext 
   const provider = findUser(context.users, selectedJob.providerId);
   const jobEvidence = context.evidence.filter((item) => item.jobId === selectedJob.id);
   const review = context.reviews.find((item) => item.jobId === selectedJob.id);
+  const hasBeforeEvidence = hasEvidenceType(jobEvidence, "before");
+  const hasAfterEvidence = hasEvidenceType(jobEvidence, "after");
+  const canUploadEvidence = job.status === "in_progress" || job.status === "evidence_uploaded";
+  const aiAnalysisInProgress = context.aiAnalysisInProgressJobIds.has(selectedJob.id);
 
   async function updateStatus(status: JobStatus) {
     setBusyAction(status);
@@ -1107,19 +1223,39 @@ function JobDetailPage({ jobId, context }: { jobId: string; context: AppContext 
             <ArrowRight size={17} />
           </button>
         )}
-        {job.status === "in_progress" && (
+        {canUploadEvidence && !hasBeforeEvidence && !hasAfterEvidence && (
           <a
             className="button primary"
-            href={`/provider/jobs/${selectedJob.id}/evidence/new`}
-            onClick={linkTo(`/provider/jobs/${selectedJob.id}/evidence/new`)}
+            href={evidenceUploadHref(selectedJob.id, "before")}
+            onClick={linkTo(evidenceUploadHref(selectedJob.id, "before"))}
           >
-            Subir evidencia
+            {evidenceUploadCopy.before.actionLabel}
             <Upload size={17} />
           </a>
         )}
-        {job.status === "evidence_uploaded" && (
+        {canUploadEvidence && hasBeforeEvidence && !hasAfterEvidence && (
+          <>
+            <a
+              className={evidenceUploadCopy.progress.buttonClass}
+              href={evidenceUploadHref(selectedJob.id, "progress")}
+              onClick={linkTo(evidenceUploadHref(selectedJob.id, "progress"))}
+            >
+              {evidenceUploadCopy.progress.actionLabel}
+              <Upload size={17} />
+            </a>
+            <a
+              className={evidenceUploadCopy.after.buttonClass}
+              href={evidenceUploadHref(selectedJob.id, "after")}
+              onClick={linkTo(evidenceUploadHref(selectedJob.id, "after"))}
+            >
+              {evidenceUploadCopy.after.actionLabel}
+              <CheckCircle2 size={17} />
+            </a>
+          </>
+        )}
+        {job.status === "evidence_uploaded" && hasAfterEvidence && (
           <button className="button primary" onClick={() => void attachAiReview()} disabled={Boolean(busyAction)}>
-            {busyAction === "ai_reviewed" ? "Publicando..." : "Guardar revisión IA"}
+            {busyAction === "ai_reviewed" ? "Analizando..." : "Reintentar análisis IA"}
             <Bot size={17} />
           </button>
         )}
@@ -1138,7 +1274,12 @@ function JobDetailPage({ jobId, context }: { jobId: string; context: AppContext 
       <section className="split-section wide-left">
         <div>
           <h2>Timeline verificable</h2>
-          <VerificationTimeline job={selectedJob} evidence={jobEvidence} arkivEvents={context.arkivEvents} />
+          <VerificationTimeline
+            job={selectedJob}
+            evidence={jobEvidence}
+            arkivEvents={context.arkivEvents}
+            aiAnalysisInProgress={aiAnalysisInProgress}
+          />
         </div>
         <aside className="verification-panel">
           <h2>Verificación</h2>
@@ -1154,13 +1295,15 @@ function JobDetailPage({ jobId, context }: { jobId: string; context: AppContext 
       <section className="section compact-section">
         <div className="section-heading">
           <span className="eyebrow">Evidencias</span>
-          <h2>Archivo local, metadata, IA y Arkiv.</h2>
+          <h2>Fotos, metadata, IA y Arkiv</h2>
         </div>
         <div className="evidence-grid">
           {jobEvidence.length > 0 ? (
-            jobEvidence.map((item) => <EvidenceCard item={item} key={item.id} />)
+            jobEvidence.map((item) => (
+              <EvidenceCard item={item} key={item.id} aiAnalysisInProgress={aiAnalysisInProgress} />
+            ))
           ) : (
-            <EmptyState text="Todavia no hay evidencia cargada para este trabajo." />
+            <EmptyState text="Todavía no hay evidencia cargada para este trabajo." />
           )}
         </div>
       </section>
@@ -1183,10 +1326,12 @@ function VerificationTimeline({
   job,
   evidence,
   arkivEvents,
+  aiAnalysisInProgress,
 }: {
   job: Job;
   evidence: JobEvidence[];
   arkivEvents: ArkivEvent[];
+  aiAnalysisInProgress: boolean;
 }) {
   const hasEvidence = evidence.length > 0;
   const hasAi = evidence.some((item) => item.aiStatus !== "pending" && item.aiSummary);
@@ -1218,6 +1363,7 @@ function VerificationTimeline({
       local: "job_evidence.ai_summary",
       event: "ai_review_generated",
       done: hasAi,
+      inProgress: aiAnalysisInProgress,
       entityKey: aiEvent?.entityKey ?? null,
       txHash: aiEvent?.txHash ?? null,
     },
@@ -1226,6 +1372,7 @@ function VerificationTimeline({
       local: "jobs.status + reviews",
       event: "job_completed",
       done: job.status === "completed",
+      inProgress: false,
       entityKey: completedEvent?.entityKey ?? null,
       txHash: completedEvent?.txHash ?? null,
     },
@@ -1234,9 +1381,11 @@ function VerificationTimeline({
   return (
     <div className="timeline-list">
       {rows.map((row) => (
-        <div className="timeline-row" key={row.event}>
+        <div className={row.inProgress ? "timeline-row in-progress" : "timeline-row"} key={row.event}>
           {isArkivEntityKey(row.entityKey) ? (
             <CheckCircle2 className="ok" size={20} />
+          ) : row.inProgress ? (
+            <Bot size={20} />
           ) : row.done ? (
             <Clock3 size={20} />
           ) : (
@@ -1248,8 +1397,14 @@ function VerificationTimeline({
           </div>
           <div className="timeline-proof">
             <span>{row.event}</span>
-            <ArkivReference value={row.entityKey} fallback="referencia local no publicada" />
-            {isArkivTxHash(row.txHash) && <ArkivReference value={row.txHash} kind="tx" />}
+            {row.inProgress ? (
+              <span className="thinking-text">Análisis en progreso</span>
+            ) : (
+              <>
+                <ArkivReference value={row.entityKey} fallback="referencia local no publicada" />
+                {isArkivTxHash(row.txHash) && <ArkivReference value={row.txHash} kind="tx" />}
+              </>
+            )}
           </div>
         </div>
       ))}
@@ -1270,6 +1425,8 @@ function ProviderDashboard({ context }: { context: AppContext }) {
       <div className="work-table">
         {assignedJobs.map((job) => {
           const service = context.services.find((item) => item.id === job.serviceId);
+          const jobEvidence = context.evidence.filter((item) => item.jobId === job.id);
+          const suggestedEvidenceType = nextEvidenceUploadType(jobEvidence);
           return (
             <article className="work-row" key={job.id}>
               <div>
@@ -1282,13 +1439,13 @@ function ProviderDashboard({ context }: { context: AppContext }) {
                 <a href={`/jobs/${job.id}`} onClick={linkTo(`/jobs/${job.id}`)}>
                   Abrir
                 </a>
-                {job.status === "in_progress" && (
+                {(job.status === "in_progress" || job.status === "evidence_uploaded") && suggestedEvidenceType && (
                   <a
                     className="button primary compact"
-                    href={`/provider/jobs/${job.id}/evidence/new`}
-                    onClick={linkTo(`/provider/jobs/${job.id}/evidence/new`)}
+                    href={evidenceUploadHref(job.id, suggestedEvidenceType)}
+                    onClick={linkTo(evidenceUploadHref(job.id, suggestedEvidenceType))}
                   >
-                    Evidencia
+                    {suggestedEvidenceType === "before" ? "Inicial" : "Progreso"}
                     <Upload size={15} />
                   </a>
                 )}
@@ -1305,43 +1462,130 @@ function nextStep(status: JobStatus) {
   const steps: Record<JobStatus, string> = {
     requested: "Aceptar solicitud",
     accepted: "Marcar en progreso",
-    in_progress: "Subir evidencia before, progress o after",
-    evidence_uploaded: "Esperar revisión IA",
+    in_progress: "Subir estado inicial, progreso o resultado final",
+    evidence_uploaded: "Continuar evidencias o revisar IA",
     ai_reviewed: "Esperar aprobación del cliente",
     completed: "Trabajo cerrado",
   };
   return steps[status];
 }
 
-function NewEvidencePage({ jobId, context }: { jobId: string; context: AppContext }) {
+function NewEvidencePage({
+  jobId,
+  evidenceType,
+  context,
+}: {
+  jobId: string;
+  evidenceType: EvidenceUploadType | null;
+  context: AppContext;
+}) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFilePreview, setSelectedFilePreview] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const job = context.jobs.find((item) => item.id === jobId);
+
+  useEffect(() => {
+    if (!selectedFile) {
+      setSelectedFilePreview(null);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(selectedFile);
+    setSelectedFilePreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [selectedFile]);
+
   if (!job) return <NotFoundPage />;
   const selectedJob = job;
+  const jobEvidence = context.evidence.filter((item) => item.jobId === selectedJob.id);
+  const selectedEvidenceType = evidenceType ?? nextEvidenceUploadType(jobEvidence);
+
+  if (!selectedEvidenceType) {
+    return (
+      <main className="page narrow">
+        <PageTitle
+          eyebrow="Evidencia completa"
+          title={selectedJob.title}
+          text="El resultado final ya fue cargado para este trabajo."
+        />
+        <a className="button primary" href={`/jobs/${selectedJob.id}`} onClick={linkTo(`/jobs/${selectedJob.id}`)}>
+          Volver al trabajo
+          <ArrowRight size={17} />
+        </a>
+      </main>
+    );
+  }
+
+  const evidenceTypeForUpload: EvidenceUploadType = selectedEvidenceType;
+  const copy = evidenceUploadCopy[evidenceTypeForUpload];
+
+  function isImageFile(file: File) {
+    return file.type.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp|heic|heif)$/i.test(file.name);
+  }
+
+  function selectEvidenceFile(file: File | null) {
+    if (!file) return;
+
+    if (!isImageFile(file)) {
+      setSelectedFile(null);
+      setError("Subí una imagen para guardar la evidencia.");
+      return;
+    }
+
+    setError(null);
+    setSelectedFile(file);
+  }
+
+  function clearEvidenceFile() {
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
+  function onFileInputChange(event: ChangeEvent<HTMLInputElement>) {
+    selectEvidenceFile(event.currentTarget.files?.[0] ?? null);
+  }
+
+  function onFileDragOver(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    setDragActive(true);
+  }
+
+  function onFileDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setDragActive(false);
+    selectEvidenceFile(event.dataTransfer.files.item(0));
+  }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const file = form.get("file");
+    const file = selectedFile ?? form.get("file");
     setSubmitting(true);
     setError(null);
 
     if (!(file instanceof File) || file.size === 0) {
       setSubmitting(false);
-      setError("Selecciona una imagen para guardar la evidencia.");
+      setError("Seleccioná una imagen para guardar la evidencia.");
       return;
     }
 
     try {
       const payload = new FormData();
       payload.set("uploadedBy", selectedJob.providerId ?? "provider_001");
-      payload.set("type", String(form.get("type")) as EvidenceType);
       payload.set("description", String(form.get("description")));
       payload.set("file", file);
-      const state = await createEvidence(selectedJob.id, payload);
+      const state = await createEvidence(selectedJob.id, evidenceTypeForUpload, payload);
 
       context.applyRemoteState(state);
+      if (evidenceTypeForUpload === "after") {
+        context.setAiAnalysisInProgressJobIds((current) => new Set(current).add(selectedJob.id));
+      }
       navigate(`/jobs/${selectedJob.id}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "No se pudo guardar la evidencia.");
@@ -1353,35 +1597,73 @@ function NewEvidencePage({ jobId, context }: { jobId: string; context: AppContex
   return (
     <main className="page narrow">
       <PageTitle
-        eyebrow="Subir evidencia"
-        title={selectedJob.title}
-        text="El archivo se guarda con hash SHA-256 y metadata listos para publicar evidence_uploaded."
+        eyebrow={copy.eyebrow}
+        title={copy.title}
+        text={copy.text}
       />
       <form className="form-card" onSubmit={onSubmit}>
         <div className="form-grid">
-          <label>
-            Tipo
-            <select name="type" defaultValue="after">
-              <option value="before">before</option>
-              <option value="progress">progress</option>
-              <option value="after">after</option>
-              <option value="receipt">receipt</option>
-              <option value="issue">issue</option>
-            </select>
-          </label>
-          <label>
+          <div className="evidence-job-context wide">
+            <span>Trabajo solicitado</span>
+            <strong>{selectedJob.title}</strong>
+          </div>
+          <label
+            className={[
+              "file-drop-zone wide",
+              selectedFile ? "has-file" : "",
+              dragActive ? "is-dragging" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            onDragEnter={() => setDragActive(true)}
+            onDragLeave={() => setDragActive(false)}
+            onDragOver={onFileDragOver}
+            onDrop={onFileDrop}
+          >
             Archivo local
-            <input name="file" type="file" accept="image/*" required />
+            <input ref={fileInputRef} name="file" type="file" accept="image/*" onChange={onFileInputChange} />
+            <span className="file-drop-surface">
+              {selectedFilePreview ? (
+                <span className="file-thumbnail">
+                  <img src={selectedFilePreview} alt={`Vista previa de ${selectedFile?.name ?? "la evidencia"}`} />
+                </span>
+              ) : (
+                <Upload size={22} />
+              )}
+              <span>
+                <strong>{selectedFile ? selectedFile.name : "Arrastrá una imagen o elegila desde tu equipo"}</strong>
+                <small>{selectedFile ? "Imagen lista para guardar." : "Un solo archivo de imagen para esta evidencia."}</small>
+              </span>
+              {selectedFile && (
+                <button
+                  className="file-remove-button"
+                  type="button"
+                  aria-label="Quitar archivo seleccionado"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    clearEvidenceFile();
+                  }}
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </span>
           </label>
           <label className="wide">
             Descripción
-            <textarea name="description" defaultValue="Reparación terminada sin pérdida visible." />
+            <textarea name="description" placeholder={copy.descriptionPlaceholder} />
           </label>
         </div>
-        <button className="button primary" type="submit" disabled={submitting}>
-          {submitting ? "Publicando..." : "Guardar evidencia"}
-          <Upload size={17} />
-        </button>
+        <div className="form-actions">
+          <a className="button text" href={`/jobs/${selectedJob.id}`} onClick={linkTo(`/jobs/${selectedJob.id}`)}>
+            Volver
+          </a>
+          <button className={`${copy.buttonClass}${submitting ? " publishing" : ""}`} type="submit" disabled={submitting}>
+            {submitting ? "Publicando..." : copy.actionLabel}
+            <Upload size={17} />
+          </button>
+        </div>
         {error && <p className="form-error">{error}</p>}
       </form>
     </main>
@@ -1401,7 +1683,7 @@ function AdminPage({
     <main className="page">
       <PageTitle
         eyebrow="Admin / jurado"
-        title="Auditoria operativa y verificable en una sola vista."
+        title="Auditoría operativa y verificable en una sola vista."
         text="Compara estados locales, evidencias, IA y referencias Arkiv por trabajo."
       />
       <div className="admin-grid">
@@ -1501,8 +1783,17 @@ function resolveEvidenceImageUrl(value: string | null) {
   return value;
 }
 
-function EvidenceCard({ item, compact = false }: { item: JobEvidence; compact?: boolean }) {
+function EvidenceCard({
+  item,
+  compact = false,
+  aiAnalysisInProgress = false,
+}: {
+  item: JobEvidence;
+  compact?: boolean;
+  aiAnalysisInProgress?: boolean;
+}) {
   const imageUrl = resolveEvidenceImageUrl(item.publicFileUrl);
+  const showAiProgress = aiAnalysisInProgress;
 
   return (
     <article className={compact ? "evidence-card compact" : "evidence-card"}>
@@ -1516,7 +1807,9 @@ function EvidenceCard({ item, compact = false }: { item: JobEvidence; compact?: 
       </div>
       <div>
         <h3>{item.description}</h3>
-        <p>{item.aiSummary ?? "Análisis IA pendiente."}</p>
+        <p className={showAiProgress ? "thinking-text" : undefined}>
+          {showAiProgress ? "Análisis en progreso" : item.aiSummary ?? "Análisis IA pendiente."}
+        </p>
         <div className="hash-line">
           <span>SHA-256</span>
           <code>{item.sha256Hash}</code>
