@@ -22,6 +22,7 @@
   "type": "module",
   "dependencies": {
     "@arkiv-network/sdk": "^0.6.8",
+    "@google/genai": "^2.7.0",
     "better-sqlite3": "^12.10.0",
     "dotenv": "^17.4.2",
     "tsx": "^4.22.3",

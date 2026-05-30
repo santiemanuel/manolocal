@@ -1,9 +1,11 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { basename, extname, isAbsolute, join, resolve } from "node:path";
+import { basename, dirname, extname, isAbsolute, join, resolve } from "node:path";
 import { Readable } from "node:stream";
+import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
+import { GeminiError, queryGemini } from "../ai/gemini.ts";
 import { createArkivWalletClient } from "../arkiv/client.ts";
 import {
   createAIReviewGeneratedEntity,
@@ -21,7 +23,8 @@ import type {
   RepositorySet,
 } from "../repositories/ports.ts";
 
-config({ quiet: true });
+const backendRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+config({ path: resolve(backendRoot, ".env"), quiet: true });
 
 const port = Number(process.env.API_PORT ?? 3001);
 const repositories = createRepositories();
@@ -39,6 +42,23 @@ function sendJson(response: ServerResponse, statusCode: number, body: unknown) {
     "Content-Type": "application/json; charset=utf-8",
   });
   response.end(JSON.stringify(body));
+}
+
+function apiErrorStatus(error: unknown) {
+  if (error instanceof GeminiError) {
+    if (error.kind === "missing_api_key") return 503;
+    return 502;
+  }
+
+  return 500;
+}
+
+function apiErrorMessage(error: unknown) {
+  if (error instanceof GeminiError) {
+    return error.message;
+  }
+
+  return error instanceof Error ? error.message : "Error desconocido.";
 }
 
 function uploadContentType(pathname: string) {
@@ -242,6 +262,18 @@ async function route(request: IncomingMessage, response: ServerResponse) {
     return;
   }
 
+  if (request.method === "POST" && url.pathname === "/api/ai/gemini/test") {
+    const body = await readJson<{ prompt?: string }>(request);
+    sendJson(response, 200, await queryGemini(body.prompt));
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/ai/gemini/query") {
+    const body = await readJson<{ prompt?: string }>(request);
+    sendJson(response, 200, await queryGemini(body.prompt));
+    return;
+  }
+
   if (request.method === "POST" && url.pathname === "/api/jobs") {
     const input = await readJson<CreateJobInput>(request);
     sendJson(response, 201, await createJob(input, context));
@@ -314,8 +346,7 @@ async function route(request: IncomingMessage, response: ServerResponse) {
 
 const server = createServer((request, response) => {
   route(request, response).catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : "Error desconocido.";
-    sendJson(response, 500, { error: message });
+    sendJson(response, apiErrorStatus(error), { error: apiErrorMessage(error) });
   });
 });
 
