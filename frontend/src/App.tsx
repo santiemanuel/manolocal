@@ -43,6 +43,9 @@ import {
   updateJobStatus,
 } from "./api/client";
 import heroEvidence from "./assets/hero-evidence.png";
+import processEvidence from "./assets/process-evidence.webp";
+import processRequest from "./assets/process-request.webp";
+import processReview from "./assets/process-review.webp";
 import {
   arkivEvents as initialArkivEvents,
   evidence as initialEvidence,
@@ -547,31 +550,79 @@ function HomePage({ jobs, evidence }: { jobs: Job[]; evidence: JobEvidence[] }) 
         </div>
       </section>
 
-      <section className="section">
-        <div className="section-heading">
-          <span className="eyebrow">Flujo principal</span>
-          <h2>Un recorrido claro para cliente, prestador y jurado.</h2>
-        </div>
-        <div className="feature-grid">
-          <Feature icon={<Search />} title="Cliente" text="Elige servicio, revisa reputación y abre una solicitud con estado visible." />
-          <Feature icon={<Upload />} title="Prestador" text="Acepta el trabajo, marca avance y sube evidencia local con hash." />
-          <Feature icon={<Database />} title="Admin" text="Audita SQLite contra Arkiv: entity keys, tx hashes, IA y alertas." />
-        </div>
-      </section>
-
-      <section className="dark-band">
-        <div>
-          <span className="eyebrow inverted">Caso recomendado</span>
-          <h2>Plomería: pérdida bajo cocina.</h2>
+      <section className="section process-section">
+        <div className="process-heading">
+          <div>
+            <span className="eyebrow">Ejemplo del funcionamiento</span>
+            <h2>De pedir ayuda a cerrar el trabajo con evidencia visible.</h2>
+          </div>
           <p>
-            Sofía Ramírez contrata a Martín Acosta. El trabajo avanza por estados operativos y cada hito importante se
-            muestra como pendiente o verificable.
+            Un cliente cotidiano puede entender qué pasa en cada momento: solicita el servicio, el prestador documenta el
+            avance y el cierre queda listo para revisar.
           </p>
         </div>
-        <a className="button light" href="/jobs/job_001" onClick={linkTo("/jobs/job_001")}>
-          Ver detalle
-          <ArrowRight size={17} />
-        </a>
+        <div className="process-grid">
+          <ProcessStep
+            image={processRequest}
+            imageAlt="Cliente solicitando un servicio desde su cocina."
+            icon={<Search size={18} />}
+            step="Paso 1"
+            title="Pedís el servicio"
+            text="Elegís el rubro, la zona y abrís una solicitud con el problema explicado en lenguaje simple."
+            meta="Solicitud creada"
+          />
+          <ProcessStep
+            image={processEvidence}
+            imageAlt="Prestador documentando una reparación de plomería bajo la cocina."
+            icon={<Upload size={18} />}
+            step="Paso 2"
+            title="El prestador muestra el avance"
+            text="Sube fotos del antes, el progreso y el resultado para que no dependas solo de mensajes sueltos."
+            meta="Evidencia con hash"
+          />
+          <ProcessStep
+            image={processReview}
+            imageAlt="Cliente revisando la evidencia final de un servicio terminado."
+            icon={<ShieldCheck size={18} />}
+            step="Paso 3"
+            title="Revisás y cerrás con confianza"
+            text="La evidencia queda ordenada para comparar el trabajo realizado, aprobar el cierre y dejar reseña."
+            meta="Cierre verificable"
+          />
+        </div>
+
+        <div className="process-case">
+          <div className="process-case-copy">
+            <span className="eyebrow inverted">Caso recomendado</span>
+            <h3>Plomería: pérdida bajo cocina</h3>
+            <p>
+              Sofía Ramírez contrata a Martín Acosta. El recorrido muestra qué se pidió, qué evidencia subió el
+              prestador y qué quedó listo para auditar.
+            </p>
+            <a className="button light" href="/jobs/job_001" onClick={linkTo("/jobs/job_001")}>
+              Ver detalle
+              <ArrowRight size={17} />
+            </a>
+          </div>
+          <div className="process-proof" aria-label="Resumen visual del caso de plomería">
+            <div>
+              <span>Servicio</span>
+              <strong>Plomería</strong>
+            </div>
+            <div>
+              <span>Evidencias</span>
+              <strong>2 fotos</strong>
+            </div>
+            <div>
+              <span>Revisión IA</span>
+              <strong>Sin pérdida visible</strong>
+            </div>
+            <div>
+              <span>Estado</span>
+              <strong>Completado</strong>
+            </div>
+          </div>
+        </div>
       </section>
     </main>
   );
@@ -586,12 +637,37 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Feature({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
+function ProcessStep({
+  image,
+  imageAlt,
+  icon,
+  step,
+  title,
+  text,
+  meta,
+}: {
+  image: string;
+  imageAlt: string;
+  icon: ReactNode;
+  step: string;
+  title: string;
+  text: string;
+  meta: string;
+}) {
   return (
-    <article className="feature-card">
-      <div className="feature-icon">{icon}</div>
-      <h3>{title}</h3>
-      <p>{text}</p>
+    <article className="process-card">
+      <div className="process-image">
+        <img src={image} alt={imageAlt} loading="lazy" />
+        <span>{meta}</span>
+      </div>
+      <div className="process-card-body">
+        <div className="process-step-mark">
+          {icon}
+          <span>{step}</span>
+        </div>
+        <h3>{title}</h3>
+        <p>{text}</p>
+      </div>
     </article>
   );
 }
